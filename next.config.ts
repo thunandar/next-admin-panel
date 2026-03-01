@@ -1,7 +1,14 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
-  /* config options here */
-};
+  devIndicators: false,
+  images: {
+    unoptimized: process.env.NODE_ENV === 'development',
+    remotePatterns: [
+      { protocol: 'http', hostname: 'localhost', pathname: '/uploads/**' },
+      { protocol: 'https', hostname: '*.amazonaws.com', pathname: '/**' },
+    ],
+  },
+}
 
-export default nextConfig;
+export default nextConfig
