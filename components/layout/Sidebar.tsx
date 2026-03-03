@@ -2,18 +2,20 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Package, Users, User, LogOut, Box } from 'lucide-react'
+import { LayoutDashboard, Package, Users, User, LogOut, Box, ShoppingCart, ClipboardList } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/context/AuthContext'
 
 const navItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/products', label: 'Products', icon: Package },
-  { href: '/users', label: 'Users', icon: Users, adminOnly: true },
+  { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/admin/products', label: 'Products', icon: Package },
+  { href: '/admin/users', label: 'Users', icon: Users, adminOnly: true },
+  { href: '/admin/orders', label: 'Orders', icon: ShoppingCart, adminOnly: true },
+  { href: '/admin/audit-logs', label: 'Audit Logs', icon: ClipboardList, adminOnly: true },
 ]
 
 const bottomItems = [
-  { href: '/profile', label: 'Profile', icon: User },
+  { href: '/admin/profile', label: 'Profile', icon: User },
 ]
 
 export default function Sidebar() {
@@ -21,7 +23,7 @@ export default function Sidebar() {
   const { user, logout } = useAuth()
 
   const isActive = (href: string) =>
-    href === '/dashboard' ? pathname === '/dashboard' : pathname.startsWith(href)
+    href === '/admin/dashboard' ? pathname === '/admin/dashboard' : pathname.startsWith(href)
 
   const visibleNav = navItems.filter((item) => !item.adminOnly || user?.role === 'admin')
 

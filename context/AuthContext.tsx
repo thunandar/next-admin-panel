@@ -21,6 +21,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const token = tokenStore.getAccess()
     if (!token) {
+      tokenStore.clear() // remove any stale cookie so proxy doesn't block routes
       setIsLoading(false)
       return
     }
@@ -33,16 +34,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (email: string, password: string) => {
     const { user, tokens } = await authApi.login(email, password)
+    if (user.role !== 'admin') throw new Error('Access denied. This portal is for administrators only.')
     tokenStore.set(tokens.accessToken, tokens.refreshToken)
     setUser(user)
-    window.location.href = '/dashboard'
+    window.location.href = '/admin/dashboard'
   }
 
   const register = async (data: RegisterData) => {
     const { user, tokens } = await authApi.register(data)
+    if (user.role !== 'admin') throw new Error('Access denied. This portal is for administrators only.')
     tokenStore.set(tokens.accessToken, tokens.refreshToken)
     setUser(user)
-    window.location.href = '/dashboard'
+    window.location.href = '/admin/dashboard'
   }
 
   const logout = async () => {

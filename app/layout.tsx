@@ -7,8 +7,9 @@ import './globals.css'
 const geist = Geist({ subsets: ['latin'], variable: '--font-geist' })
 
 export const metadata: Metadata = {
-  title: { default: 'ProductHub', template: '%s | ProductHub' },
+  title: { default: 'ProductHub Admin', template: '%s | ProductHub Admin' },
   description: 'Product management dashboard',
+  icons: { icon: '/icon.svg' },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

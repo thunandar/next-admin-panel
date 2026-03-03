@@ -93,3 +93,67 @@ export interface UserFilters {
   role?: 'admin' | 'user'
   search?: string
 }
+
+export interface Review {
+  id: number
+  productId: number
+  userId: number
+  rating: number
+  comment: string | null
+  user: { id: number; name: string }
+  createdAt: string
+  updatedAt: string
+}
+
+export interface OrderItem {
+  id: number
+  orderId: number
+  productId: number
+  quantity: number
+  price: string | number
+  product?: Product
+}
+
+export interface Order {
+  id: number
+  userId: number
+  status: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled'
+  totalAmount: string | number
+  shippingAddress: string | null
+  notes: string | null
+  items: OrderItem[]
+  user?: { id: number; name: string; email: string }
+  createdAt: string
+  updatedAt: string
+}
+
+export interface WishlistItem {
+  id: number
+  userId: number
+  productId: number
+  product: Product
+  createdAt: string
+}
+
+export interface CartItem {
+  product: Product
+  quantity: number
+}
+
+export interface CreateOrderData {
+  items: { productId: number; quantity: number }[]
+  shippingAddress?: string
+  notes?: string
+}
+
+export interface AuditLog {
+  id: number
+  userId: number | null
+  action: string
+  entity: string
+  entityId: number | null
+  details: Record<string, unknown> | null
+  ipAddress: string | null
+  user?: { id: number; name: string; email: string }
+  createdAt: string
+}

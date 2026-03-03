@@ -41,7 +41,7 @@ export default function ProductDetailPage() {
     try {
       await productsApi.delete(product.id)
       toast.success('Product deleted')
-      router.push('/products')
+      router.push('/admin/products')
     } catch {
       toast.error('Failed to delete product')
       setDeleting(false)
@@ -60,7 +60,7 @@ export default function ProductDetailPage() {
       {/* Back + Actions */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <Link href="/products">
+          <Link href="/admin/products">
             <button className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors">
               <ArrowLeft size={18} />
             </button>
@@ -72,7 +72,7 @@ export default function ProductDetailPage() {
         </div>
         {isAdmin && (
           <div className="flex gap-2">
-            <Link href={`/products/${product.id}/edit`}>
+            <Link href={`/admin/products/${product.id}/edit`}>
               <Button variant="secondary" size="sm">
                 <Edit size={14} /> Edit
               </Button>

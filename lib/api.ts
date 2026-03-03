@@ -79,7 +79,7 @@ api.interceptors.response.use(
 
     try {
       const res = await axios.post(`${API_BASE_URL}/api/auth/refresh`, { refreshToken })
-      const { accessToken } = res.data
+      const { accessToken } = res.data.data
       tokenStore.set(accessToken, refreshToken)
       flushQueue(null, accessToken)
       return api(original)
@@ -221,6 +221,32 @@ export const usersApi = {
   changePassword: async (currentPassword: string, newPassword: string): Promise<void> => {
     await api.post('/users/change-password', { currentPassword, newPassword })
   },
+}
+
+// ─── Orders API ───────────────────────────────────────────────────────────────
+
+export const ordersApi = {
+  getAll: async (page = 1, limit = 10, status?: string) => {
+    const params = new URLSearchParams({ page: String(page), limit: String(limit) })
+    if (status) params.set('status', status)
+    const res = await api.get(`/orders?${params}`)
+    return res.data.data as { orders: import('@/types').Order[]; totalPages: number; currentPage: number; totalOrders: number }
+  },
+  updateStatus: async (id: number, status: string) => {
+    const res = await api.patch(`/orders/${id}/status`, { status })
+    return res.data.data as import('@/types').Order
+  }
+}
+
+// ─── Audit Logs API ───────────────────────────────────────────────────────────
+
+export const auditLogsApi = {
+  getAll: async (params: { page?: number; limit?: number; entity?: string; action?: string } = {}) => {
+    const query = new URLSearchParams()
+    Object.entries(params).forEach(([k, v]) => { if (v !== undefined) query.set(k, String(v)) })
+    const res = await api.get(`/audit-logs?${query}`)
+    return res.data.data as { logs: import('@/types').AuditLog[]; totalPages: number; currentPage: number; totalLogs: number }
+  }
 }
 
 export default api

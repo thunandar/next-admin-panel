@@ -5,8 +5,8 @@ const nextConfig: NextConfig = {
   images: {
     unoptimized: process.env.NODE_ENV === 'development',
     remotePatterns: [
-      { protocol: 'http', hostname: 'localhost', pathname: '/uploads/**' },
-      { protocol: 'https', hostname: '*.amazonaws.com', pathname: '/**' },
+      { protocol: 'http', hostname: 'localhost', port: '5000', pathname: '/uploads/**' },
+      { protocol: 'https', hostname: '**.amazonaws.com', pathname: '/**' },
     ],
   },
 }

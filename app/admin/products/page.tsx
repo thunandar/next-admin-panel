@@ -131,7 +131,7 @@ export default function ProductsPage() {
           </select>
 
           {isAdmin && (
-            <Link href="/products/new">
+            <Link href="/admin/products/new">
               <Button size="sm">
                 <Plus size={16} />
                 Add Product
@@ -150,7 +150,7 @@ export default function ProductsPage() {
             <Package size={40} className="mx-auto mb-3 opacity-40" />
             <p className="font-medium">No products found</p>
             {isAdmin && (
-              <Link href="/products/new">
+              <Link href="/admin/products/new">
                 <Button className="mt-4" size="sm">
                   <Plus size={16} /> Add your first product
                 </Button>
@@ -189,7 +189,7 @@ export default function ProductsPage() {
                               )}
                             </div>
                             <div>
-                              <Link href={`/products/${product.id}`} className="font-medium text-gray-900 hover:text-blue-600 transition-colors">
+                              <Link href={`/admin/products/${product.id}`} className="font-medium text-gray-900 hover:text-blue-600 transition-colors">
                                 {product.name}
                               </Link>
                               {product.description && (
@@ -210,14 +210,14 @@ export default function ProductsPage() {
                         <td className="px-6 py-4 text-sm text-gray-500">{formatDate(product.createdAt)}</td>
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-1 justify-end">
-                            <Link href={`/products/${product.id}`}>
+                            <Link href={`/admin/products/${product.id}`}>
                               <button className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors">
                                 <Eye size={15} />
                               </button>
                             </Link>
                             {isAdmin && (
                               <>
-                                <Link href={`/products/${product.id}/edit`}>
+                                <Link href={`/admin/products/${product.id}/edit`}>
                                   <button className="p-1.5 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50 transition-colors">
                                     <Edit size={15} />
                                   </button>
