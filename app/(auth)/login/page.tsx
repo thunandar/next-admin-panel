@@ -7,8 +7,6 @@ import toast from 'react-hot-toast'
 import { useAuth } from '@/context/AuthContext'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
-import type { Metadata } from 'next'
-
 export default function LoginPage() {
   const { login } = useAuth()
   const [form, setForm] = useState({ email: '', password: '' })

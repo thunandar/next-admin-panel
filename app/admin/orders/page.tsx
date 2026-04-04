@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from 'react'
 import { ShoppingCart } from 'lucide-react'
+import toast from 'react-hot-toast'
 import { ordersApi } from '@/lib/api'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import Badge from '@/components/ui/Badge'
 import Pagination from '@/components/ui/Pagination'
 import { PageLoader } from '@/components/ui/Spinner'
-import type { Order } from '@/types'
+import type { Order, Pagination as PaginationType } from '@/types'
 
 const STATUS_VARIANT: Record<Order['status'], 'green' | 'blue' | 'yellow' | 'purple' | 'red'> = {
   pending: 'yellow', confirmed: 'blue', shipped: 'purple', delivered: 'green', cancelled: 'red'
@@ -17,7 +18,7 @@ const ALL_STATUSES: Order['status'][] = ['pending', 'confirmed', 'shipped', 'del
 
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([])
-  const [totalPages, setTotalPages] = useState(1)
+  const [pagination, setPagination] = useState<PaginationType | null>(null)
   const [page, setPage] = useState(1)
   const [status, setStatus] = useState('')
   const [loading, setLoading] = useState(true)
@@ -25,8 +26,18 @@ export default function AdminOrdersPage() {
   useEffect(() => {
     setLoading(true)
     ordersApi.getAll(page, 10, status || undefined)
-      .then(res => { setOrders(res.orders); setTotalPages(res.totalPages) })
-      .catch(() => {})
+      .then(res => {
+        setOrders(res.orders)
+        setPagination({
+          currentPage: res.currentPage,
+          totalPages: res.totalPages,
+          totalItems: res.totalOrders,
+          itemsPerPage: 10,
+          hasNextPage: res.currentPage < res.totalPages,
+          hasPrevPage: res.currentPage > 1,
+        })
+      })
+      .catch(() => toast.error('Failed to load orders'))
       .finally(() => setLoading(false))
   }, [page, status])
 
@@ -34,7 +45,9 @@ export default function AdminOrdersPage() {
     try {
       await ordersApi.updateStatus(id, newStatus)
       setOrders(prev => prev.map(o => o.id === id ? { ...o, status: newStatus as Order['status'] } : o))
-    } catch {}
+    } catch {
+      toast.error('Failed to update order status')
+    }
   }
 
   if (loading) return <PageLoader />
@@ -116,9 +129,10 @@ export default function AdminOrdersPage() {
             </div>
           )}
         </div>
+        {pagination && pagination.totalPages > 1 && (
+          <Pagination pagination={pagination} onPageChange={setPage} />
+        )}
       </div>
-
-      {totalPages > 1 && <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />}
     </div>
   )
 }

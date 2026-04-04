@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from 'react'
 import { ClipboardList } from 'lucide-react'
+import toast from 'react-hot-toast'
 import { auditLogsApi } from '@/lib/api'
 import { formatDate } from '@/lib/utils'
 import Badge from '@/components/ui/Badge'
 import Pagination from '@/components/ui/Pagination'
 import { PageLoader } from '@/components/ui/Spinner'
-import type { AuditLog } from '@/types'
+import type { AuditLog, Pagination as PaginationType } from '@/types'
 
 const ACTION_VARIANT: Record<string, 'green' | 'blue' | 'red' | 'yellow' | 'gray'> = {
   create: 'green',
@@ -20,7 +21,7 @@ const ACTION_VARIANT: Record<string, 'green' | 'blue' | 'red' | 'yellow' | 'gray
 
 export default function AuditLogsPage() {
   const [logs, setLogs] = useState<AuditLog[]>([])
-  const [totalPages, setTotalPages] = useState(1)
+  const [pagination, setPagination] = useState<PaginationType | null>(null)
   const [page, setPage] = useState(1)
   const [entity, setEntity] = useState('')
   const [loading, setLoading] = useState(true)
@@ -28,8 +29,18 @@ export default function AuditLogsPage() {
   useEffect(() => {
     setLoading(true)
     auditLogsApi.getAll({ page, limit: 20, entity: entity || undefined })
-      .then(res => { setLogs(res.logs); setTotalPages(res.totalPages) })
-      .catch(() => {})
+      .then(res => {
+        setLogs(res.logs)
+        setPagination({
+          currentPage: res.currentPage,
+          totalPages: res.totalPages,
+          totalItems: res.totalLogs,
+          itemsPerPage: 20,
+          hasNextPage: res.currentPage < res.totalPages,
+          hasPrevPage: res.currentPage > 1,
+        })
+      })
+      .catch(() => toast.error('Failed to load audit logs'))
       .finally(() => setLoading(false))
   }, [page, entity])
 
@@ -77,7 +88,7 @@ export default function AuditLogsPage() {
                     <p className="text-sm text-gray-900">{log.user?.name ?? '—'}</p>
                     <p className="text-xs text-gray-400">{log.user?.email ?? ''}</p>
                   </td>
-                  <td className="px-6 py-4 text-xs text-gray-500 font-mono max-w-[200px] truncate">
+                  <td className="px-6 py-4 text-xs text-gray-500 font-mono max-w-50 truncate">
                     {log.details ? JSON.stringify(log.details) : '—'}
                   </td>
                   <td className="px-6 py-4 text-xs text-gray-400">{log.ipAddress ?? '—'}</td>
@@ -94,9 +105,10 @@ export default function AuditLogsPage() {
             </div>
           )}
         </div>
+        {pagination && pagination.totalPages > 1 && (
+          <Pagination pagination={pagination} onPageChange={setPage} />
+        )}
       </div>
-
-      {totalPages > 1 && <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />}
     </div>
   )
 }

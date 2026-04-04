@@ -6,14 +6,12 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { ArrowLeft, Upload, X } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { productsApi } from '@/lib/api'
+import { productsApi, categoriesApi } from '@/lib/api'
 import { getImageUrl } from '@/lib/utils'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import { PageLoader } from '@/components/ui/Spinner'
 import type { Product, UpdateProductData } from '@/types'
-
-const CATEGORIES = ['Electronics', 'Clothing', 'Food', 'Books', 'Furniture', 'Sports', 'Beauty', 'Other']
 
 export default function EditProductPage() {
   const { id } = useParams<{ id: string }>()
@@ -26,6 +24,11 @@ export default function EditProductPage() {
   const [newPreviews, setNewPreviews] = useState<string[]>([])
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [form, setForm] = useState<UpdateProductData>({})
+  const [categories, setCategories] = useState<string[]>([])
+
+  useEffect(() => {
+    categoriesApi.getAll().then(res => setCategories(res.categories)).catch(() => {})
+  }, [])
 
   useEffect(() => {
     productsApi
@@ -161,7 +164,7 @@ export default function EditProductPage() {
                   className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                 >
                   <option value="">No category</option>
-                  {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                  {categories.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
             </div>

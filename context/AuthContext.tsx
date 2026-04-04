@@ -34,16 +34,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (email: string, password: string) => {
     const { user, tokens } = await authApi.login(email, password)
-    if (user.role !== 'admin') throw new Error('Access denied. This portal is for administrators only.')
-    tokenStore.set(tokens.accessToken, tokens.refreshToken)
+    if (!['admin', 'super_admin'].includes(user.role)) throw new Error('Access denied. This portal is for administrators only.')
+    tokenStore.set(tokens.accessToken)
     setUser(user)
     window.location.href = '/admin/dashboard'
   }
 
   const register = async (data: RegisterData) => {
     const { user, tokens } = await authApi.register(data)
-    if (user.role !== 'admin') throw new Error('Access denied. This portal is for administrators only.')
-    tokenStore.set(tokens.accessToken, tokens.refreshToken)
+    if (!['admin', 'super_admin'].includes(user.role)) throw new Error('Access denied. This portal is for administrators only.')
+    tokenStore.set(tokens.accessToken)
     setUser(user)
     window.location.href = '/admin/dashboard'
   }

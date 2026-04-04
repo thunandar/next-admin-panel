@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -9,10 +9,8 @@ import { ArrowLeft, Upload, X, ImageIcon } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
 import toast from 'react-hot-toast'
-import { productsApi } from '@/lib/api'
+import { productsApi, categoriesApi } from '@/lib/api'
 import Button from '@/components/ui/Button'
-
-const CATEGORIES = ['Electronics', 'Clothing', 'Food', 'Books', 'Furniture', 'Sports', 'Beauty', 'Other']
 
 const schema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters').max(100),
@@ -28,6 +26,11 @@ export default function NewProductPage() {
   const router = useRouter()
   const [images, setImages] = useState<File[]>([])
   const [previews, setPreviews] = useState<string[]>([])
+  const [categories, setCategories] = useState<string[]>([])
+
+  useEffect(() => {
+    categoriesApi.getAll().then(res => setCategories(res.categories)).catch(() => {})
+  }, [])
 
   const {
     register,
@@ -117,7 +120,7 @@ export default function NewProductPage() {
                 <label className="text-sm font-medium text-gray-700">Category</label>
                 <select {...register('category')} className={`${fieldClass(false)} bg-white`}>
                   <option value="">No category</option>
-                  {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  {categories.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
             </div>

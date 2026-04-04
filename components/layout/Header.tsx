@@ -1,48 +1,68 @@
 'use client'
 
 import { usePathname } from 'next/navigation'
-import { Bell } from 'lucide-react'
+import { Moon, Sun, Menu } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
+import { useTheme } from '@/context/ThemeContext'
 
 const pageTitles: Record<string, string> = {
-  '/dashboard': 'Dashboard',
-  '/products': 'Products',
-  '/products/new': 'New Product',
-  '/users': 'Users',
-  '/profile': 'Profile',
+  '/admin/dashboard': 'Dashboard',
+  '/admin/products': 'Products',
+  '/admin/products/new': 'New Product',
+  '/admin/users': 'Users',
+  '/admin/orders': 'Orders',
+  '/admin/audit-logs': 'Audit Logs',
+  '/admin/profile': 'Profile',
 }
 
 function getTitle(pathname: string): string {
   if (pageTitles[pathname]) return pageTitles[pathname]
-  if (pathname.match(/\/products\/\d+\/edit/)) return 'Edit Product'
-  if (pathname.match(/\/products\/\d+/)) return 'Product Details'
-  if (pathname.match(/\/users\/\d+/)) return 'User Details'
+  if (pathname.match(/\/admin\/products\/\d+\/edit/)) return 'Edit Product'
+  if (pathname.match(/\/admin\/products\/\d+/)) return 'Product Details'
+  if (pathname.match(/\/admin\/users\/\d+/)) return 'User Details'
   return 'Dashboard'
 }
 
-export default function Header() {
+interface HeaderProps {
+  onMenuClick?: () => void
+}
+
+export default function Header({ onMenuClick }: HeaderProps) {
   const { user } = useAuth()
+  const { theme, toggleTheme } = useTheme()
   const pathname = usePathname()
 
   return (
-    <header className="sticky top-0 z-20 bg-white border-b border-gray-100 px-6 py-4">
+    <header className="sticky top-0 z-20 bg-white dark:bg-[#1e2732] border-b border-gray-100 dark:border-[#38444d] px-4 lg:px-6 py-4">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-gray-900">{getTitle(pathname)}</h1>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onMenuClick}
+            className="lg:hidden p-2 rounded-lg text-gray-500 dark:text-[#8b98a5] hover:bg-gray-100 dark:hover:bg-[#253341] transition-colors"
+          >
+            <Menu size={20} />
+          </button>
+          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">{getTitle(pathname)}</h1>
         </div>
 
         <div className="flex items-center gap-3">
-          <button className="relative p-2 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors">
-            <Bell size={18} />
+          {/* Dark mode toggle */}
+          <button
+            onClick={toggleTheme}
+            className="p-2 rounded-lg text-gray-500 dark:text-[#8b98a5] hover:bg-gray-100 dark:hover:bg-[#253341] transition-colors"
+            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
           </button>
+
           {user && (
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-semibold">
+              <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-semibold">
                 {user.name.charAt(0).toUpperCase()}
               </div>
               <div className="hidden sm:block">
-                <p className="text-sm font-medium text-gray-900">{user.name}</p>
-                <p className="text-xs text-gray-500 capitalize">{user.role}</p>
+                <p className="text-sm font-medium text-gray-900 dark:text-white">{user.name}</p>
+                <p className="text-xs text-gray-500 dark:text-[#8b98a5] capitalize">{user.role}</p>
               </div>
             </div>
           )}

@@ -1,21 +1,55 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
+  --bg-page: #f8fafc;
+  --bg-surface: #ffffff;
+  --bg-muted: #f1f5f9;
+  --bd: #e2e8f0;
+  --t1: #0f172a;
+  --t2: #64748b;
+  --t3: #94a3b8;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+.dark {
+  --bg-page: #15202b;
+  --bg-surface: #1e2732;
+  --bg-muted: #253341;
+  --bd: #38444d;
+  --t1: #e7e9ea;
+  --t2: #8b98a5;
+  --t3: #6b7280;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--bg-page);
+  color: var(--t1);
 }
+
+/* Global dark mode overrides so we don't need dark: on every page component */
+.dark .bg-white { background-color: var(--bg-surface) !important; }
+.dark .bg-gray-50 { background-color: var(--bg-muted) !important; }
+.dark .bg-slate-50 { background-color: var(--bg-page) !important; }
+.dark .border-gray-100 { border-color: var(--bd) !important; }
+.dark .border-gray-200 { border-color: var(--bd) !important; }
+.dark .text-gray-900 { color: var(--t1) !important; }
+.dark .text-gray-700 { color: var(--t2) !important; }
+.dark .text-gray-600 { color: var(--t2) !important; }
+.dark .text-gray-500 { color: var(--t3) !important; }
+.dark .text-gray-400 { color: var(--t3) !important; }
+.dark .divide-gray-50 > * + * { border-color: var(--bd) !important; }
+.dark .hover\:bg-gray-50:hover { background-color: var(--bg-muted) !important; }
+.dark .bg-gray-100 { background-color: var(--bg-muted) !important; }
+.dark input, .dark textarea, .dark select {
+  background-color: var(--bg-muted) !important;
+  border-color: var(--bd) !important;
+  color: var(--t1) !important;
+}
+.dark input::placeholder, .dark textarea::placeholder { color: var(--t3) !important; }
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+.dark ::-webkit-scrollbar-thumb { background: #38444d; }
 ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }

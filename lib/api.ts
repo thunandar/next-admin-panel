@@ -15,25 +15,25 @@ import type {
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
 
 // ─── Token Management ────────────────────────────────────────────────────────
+// admin_access_token: stored in localStorage + non-HttpOnly cookie (proxy reads it)
+// refresh_token: stored in HttpOnly cookie only (JS cannot access it)
 
 export const tokenStore = {
-  getAccess: () => (typeof window !== 'undefined' ? localStorage.getItem('access_token') : null),
-  getRefresh: () => (typeof window !== 'undefined' ? localStorage.getItem('refresh_token') : null),
-  set: (access: string, refresh: string) => {
+  getAccess: () => (typeof window !== 'undefined' ? localStorage.getItem('admin_access_token') : null),
+  set: (access: string) => {
     if (typeof window === 'undefined') return
-    localStorage.setItem('access_token', access)
-    localStorage.setItem('refresh_token', refresh)
-    document.cookie = `access_token=${access}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`
+    localStorage.setItem('admin_access_token', access)
+    // 30 days matches the refresh token lifetime; resets on every silent refresh
+    document.cookie = `admin_access_token=${access}; path=/; max-age=${30 * 24 * 60 * 60}; SameSite=Lax`
   },
   clear: () => {
     if (typeof window === 'undefined') return
-    localStorage.removeItem('access_token')
-    localStorage.removeItem('refresh_token')
-    document.cookie = 'access_token=; path=/; max-age=0'
+    localStorage.removeItem('admin_access_token')
+    document.cookie = 'admin_access_token=; path=/; max-age=0'
   },
 }
 
-// ─── Axios Instance ───────────────────────────────────────────────────────────
+// ─── Axios Instance (backend) ─────────────────────────────────────────────────
 
 const api: AxiosInstance = axios.create({
   baseURL: `${API_BASE_URL}/api`,
@@ -69,23 +69,20 @@ api.interceptors.response.use(
 
     original._retry = true
     isRefreshing = true
-    const refreshToken = tokenStore.getRefresh()
-
-    if (!refreshToken) {
-      tokenStore.clear()
-      if (typeof window !== 'undefined') window.location.href = '/login'
-      return Promise.reject(error)
-    }
 
     try {
-      const res = await axios.post(`${API_BASE_URL}/api/auth/refresh`, { refreshToken })
+      // Call the Next.js API route — it reads the HttpOnly refresh_token cookie
+      const res = await axios.post('/api/auth/refresh')
       const { accessToken } = res.data.data
-      tokenStore.set(accessToken, refreshToken)
+      tokenStore.set(accessToken)
       flushQueue(null, accessToken)
+      original.headers.Authorization = `Bearer ${accessToken}`
       return api(original)
     } catch (err) {
       flushQueue(err)
       tokenStore.clear()
+      // Clear the HttpOnly refresh_token cookie via the server route
+      await axios.post('/api/auth/logout').catch(() => {})
       if (typeof window !== 'undefined') window.location.href = '/login'
       return Promise.reject(err)
     } finally {
@@ -95,19 +92,24 @@ api.interceptors.response.use(
 )
 
 // ─── Auth API ─────────────────────────────────────────────────────────────────
+// login/register/logout go through Next.js API routes (set HttpOnly cookies)
+// getMe goes directly to backend (uses access token in Authorization header)
 
 export const authApi = {
   register: async (data: RegisterData): Promise<AuthResponse> => {
-    const res = await api.post('/auth/register', data)
-    const { user, accessToken, refreshToken } = res.data.data
-    return { message: res.data.message, user, tokens: { accessToken, refreshToken } }
+    const res = await axios.post('/api/auth/register', data)
+    const { user, accessToken } = res.data.data
+    return { message: res.data.message, user, tokens: { accessToken } }
   },
   login: async (email: string, password: string): Promise<AuthResponse> => {
-    const res = await api.post('/auth/login', { email, password })
-    const { user, accessToken, refreshToken } = res.data.data
-    return { message: res.data.message, user, tokens: { accessToken, refreshToken } }
+    const res = await axios.post('/api/auth/login', { email, password })
+    const { user, accessToken } = res.data.data
+    return { message: res.data.message, user, tokens: { accessToken } }
   },
-  logout: async (): Promise<void> => { await api.post('/auth/logout') },
+  logout: async (): Promise<void> => {
+    try { await api.post('/auth/logout') } catch { /* ignore if access token already expired */ }
+    await axios.post('/api/auth/logout') // clears HttpOnly refresh_token cookie
+  },
   getMe: async (): Promise<{ user: User }> => {
     const res = await api.get('/auth/me')
     return { user: res.data.data }
@@ -206,8 +208,9 @@ export const usersApi = {
     return { message: '', data: res.data.data }
   },
 
+  // Uses the admin-only POST /api/users route (not the public register endpoint)
   create: async (data: RegisterData): Promise<User> => {
-    const res = await api.post('/auth/register', data)
+    const res = await api.post('/users', data)
     return res.data.data.user
   },
 
@@ -246,6 +249,24 @@ export const auditLogsApi = {
     Object.entries(params).forEach(([k, v]) => { if (v !== undefined) query.set(k, String(v)) })
     const res = await api.get(`/audit-logs?${query}`)
     return res.data.data as { logs: import('@/types').AuditLog[]; totalPages: number; currentPage: number; totalLogs: number }
+  }
+}
+
+// ─── Categories API ───────────────────────────────────────────────────────────
+
+export const categoriesApi = {
+  getAll: async (): Promise<{ categories: string[] }> => {
+    const res = await api.get('/categories')
+    return { categories: res.data.data }
+  },
+}
+
+// ─── Analytics API ────────────────────────────────────────────────────────────
+
+export const analyticsApi = {
+  getDashboard: async (): Promise<import('@/types').DashboardAnalytics> => {
+    const res = await api.get('/analytics/dashboard')
+    return res.data.data
   }
 }
 

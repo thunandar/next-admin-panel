@@ -5,17 +5,15 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { Plus, Search, Trash2, Edit, Eye, Package } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { productsApi } from '@/lib/api'
+import { productsApi, categoriesApi } from '@/lib/api'
 import { useAuth } from '@/context/AuthContext'
 import { formatCurrency, formatDate, getStockStatus, getPrimaryImage } from '@/lib/utils'
 import Button from '@/components/ui/Button'
 import Badge from '@/components/ui/Badge'
 import Pagination from '@/components/ui/Pagination'
 import { ConfirmModal } from '@/components/ui/Modal'
-import { PageLoader } from '@/components/ui/Spinner'
+import { TableRowSkeleton } from '@/components/ui/Skeleton'
 import type { Pagination as PaginationType, Product } from '@/types'
-
-const CATEGORIES = ['Electronics', 'Clothing', 'Food', 'Books', 'Furniture', 'Sports', 'Beauty', 'Other']
 
 export default function ProductsPage() {
   const { user } = useAuth()
@@ -23,6 +21,7 @@ export default function ProductsPage() {
 
   const [products, setProducts] = useState<Product[]>([])
   const [pagination, setPagination] = useState<PaginationType | null>(null)
+  const [categories, setCategories] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
@@ -33,13 +32,17 @@ export default function ProductsPage() {
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null)
   const [deleting, setDeleting] = useState(false)
 
+  useEffect(() => {
+    categoriesApi.getAll().then(res => setCategories(res.categories)).catch(() => {})
+  }, [])
+
   const fetchProducts = useCallback(async () => {
     setLoading(true)
     try {
       if (search) {
         const res = await productsApi.search(search, page, 10)
         setProducts(res.data)
-        setPagination(null)
+        setPagination(res.pagination)
       } else {
         const res = await productsApi.getAll({ page, limit: 10, category: category || undefined, sortBy, sortOrder })
         setProducts(res.data)
@@ -109,7 +112,7 @@ export default function ProductsPage() {
             className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
           >
             <option value="">All categories</option>
-            {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+            {categories.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
 
           <select
@@ -144,7 +147,25 @@ export default function ProductsPage() {
       {/* Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         {loading ? (
-          <PageLoader />
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-100">
+                  <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-3">Product</th>
+                  <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-3">Category</th>
+                  <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-3">Price</th>
+                  <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-3">Stock</th>
+                  <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-3">Added</th>
+                  <th className="px-6 py-3" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {Array.from({ length: 10 }).map((_, i) => (
+                  <TableRowSkeleton key={i} cols={6} />
+                ))}
+              </tbody>
+            </table>
+          </div>
         ) : products.length === 0 ? (
           <div className="text-center py-16 text-gray-400">
             <Package size={40} className="mx-auto mb-3 opacity-40" />
@@ -179,7 +200,7 @@ export default function ProductsPage() {
                       <tr key={product.id} className="hover:bg-gray-50 transition-colors">
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">
+                            <div className="w-10 h-10 rounded-lg bg-gray-100 overflow-hidden shrink-0">
                               {img !== '/placeholder.png' ? (
                                 <Image src={img} alt={product.name} width={40} height={40} className="w-full h-full object-cover" />
                               ) : (
@@ -193,7 +214,7 @@ export default function ProductsPage() {
                                 {product.name}
                               </Link>
                               {product.description && (
-                                <p className="text-xs text-gray-400 truncate max-w-[180px]">{product.description}</p>
+                                <p className="text-xs text-gray-400 truncate max-w-45">{product.description}</p>
                               )}
                             </div>
                           </div>

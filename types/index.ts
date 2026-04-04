@@ -2,7 +2,7 @@ export interface User {
   id: number
   email: string
   name: string
-  role: 'admin' | 'user'
+  role: 'super_admin' | 'admin' | 'user'
   createdAt: string
   updatedAt: string
 }
@@ -50,7 +50,7 @@ export interface SingleResponse<T> {
 
 export interface AuthTokens {
   accessToken: string
-  refreshToken: string
+  refreshToken?: string // now stored in HttpOnly cookie — not exposed to JS
 }
 
 export interface AuthResponse {
@@ -84,13 +84,13 @@ export interface RegisterData {
   email: string
   password: string
   name: string
-  role?: 'admin' | 'user'
+  role?: 'super_admin' | 'admin' | 'user'
 }
 
 export interface UserFilters {
   page?: number
   limit?: number
-  role?: 'admin' | 'user'
+  role?: 'super_admin' | 'admin' | 'user'
   search?: string
 }
 
@@ -156,4 +156,58 @@ export interface AuditLog {
   ipAddress: string | null
   user?: { id: number; name: string; email: string }
   createdAt: string
+}
+
+export interface AnalyticsTopCustomer {
+  user: { id: number; name: string; email: string }
+  totalSpent: number
+  orderCount: number
+}
+
+export interface AnalyticsBestProduct {
+  product: { id: number; name: string; category: string | null; price: string | number }
+  totalSold: number
+  totalRevenue: number
+}
+
+export interface AnalyticsRevenueMonth {
+  month: string
+  revenue: number
+  orders: number
+}
+
+export interface AnalyticsStatusBreakdown {
+  status: string
+  count: number
+}
+
+export interface AnalyticsMostWishlisted {
+  product: { id: number; name: string; category: string | null; price: string | number }
+  wishlistCount: number
+}
+
+export interface AnalyticsMostViewed {
+  product: { id: number; name: string; category: string | null; price: string | number }
+  viewCount: number
+}
+
+export interface AnalyticsNewUsers {
+  month: string
+  count: number
+}
+
+export interface DashboardAnalytics {
+  totalRevenue: number
+  totalProducts: number
+  totalUsers: number
+  totalOrders: number
+  pendingOrdersCount: number
+  recentOrders: Order[]
+  topCustomers: AnalyticsTopCustomer[]
+  bestSellingProducts: AnalyticsBestProduct[]
+  revenueByMonth: AnalyticsRevenueMonth[]
+  orderStatusBreakdown: AnalyticsStatusBreakdown[]
+  mostWishlisted: AnalyticsMostWishlisted[]
+  mostViewed: AnalyticsMostViewed[]
+  newUsersByMonth: AnalyticsNewUsers[]
 }

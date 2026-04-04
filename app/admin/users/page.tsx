@@ -1,8 +1,9 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Search, Trash2, Edit, Users as UsersIcon, Shield, UserCheck, UserPlus } from 'lucide-react'
+import { Search, Trash2, Edit, Users as UsersIcon, Shield, UserCheck, UserPlus, Crown } from 'lucide-react'
 import toast from 'react-hot-toast'
+import axios from 'axios'
 import { usersApi } from '@/lib/api'
 import { useAuth } from '@/context/AuthContext'
 import { formatDate } from '@/lib/utils'
@@ -15,8 +16,30 @@ import Input from '@/components/ui/Input'
 import { PageLoader } from '@/components/ui/Spinner'
 import type { Pagination as PaginationType, User } from '@/types'
 
+function RoleBadge({ role }: { role: User['role'] }) {
+  if (role === 'super_admin') return (
+    <div className="flex items-center gap-1.5">
+      <Crown size={14} className="text-amber-500" />
+      <Badge variant="yellow" className="capitalize">Super Admin</Badge>
+    </div>
+  )
+  if (role === 'admin') return (
+    <div className="flex items-center gap-1.5">
+      <Shield size={14} className="text-purple-500" />
+      <Badge variant="purple" className="capitalize">Admin</Badge>
+    </div>
+  )
+  return (
+    <div className="flex items-center gap-1.5">
+      <UserCheck size={14} className="text-blue-500" />
+      <Badge variant="blue" className="capitalize">User</Badge>
+    </div>
+  )
+}
+
 export default function UsersPage() {
   const { user: currentUser } = useAuth()
+  const isSuperAdmin = currentUser?.role === 'super_admin'
 
   const [users, setUsers] = useState<User[]>([])
   const [pagination, setPagination] = useState<PaginationType | null>(null)
@@ -41,7 +64,7 @@ export default function UsersPage() {
         page,
         limit: 10,
         search: search || undefined,
-        role: roleFilter as 'admin' | 'user' | undefined || undefined,
+        role: roleFilter as User['role'] | undefined || undefined,
       })
       setUsers(res.data)
       setPagination(res.pagination)
@@ -61,23 +84,21 @@ export default function UsersPage() {
   }
 
   const handleCreate = async () => {
-    setSaving(true)
     setCreating(true)
     try {
       await usersApi.create({
         name: createForm.name,
         email: createForm.email,
         password: createForm.password,
-        role: createForm.role as 'admin' | 'user',
+        role: createForm.role as User['role'],
       })
       toast.success('User created')
       setShowCreate(false)
       setCreateForm({ name: '', email: '', password: '', role: 'user' })
       fetchUsers()
-    } catch {
-      toast.error('Failed to create user')
+    } catch (err) {
+      toast.error(axios.isAxiosError(err) ? err.response?.data?.message ?? 'Failed to create user' : 'Failed to create user')
     } finally {
-      setSaving(false)
       setCreating(false)
     }
   }
@@ -94,13 +115,13 @@ export default function UsersPage() {
       await usersApi.update(editTarget.id, {
         name: editForm.name,
         email: editForm.email,
-        role: editForm.role as 'admin' | 'user',
+        role: editForm.role as User['role'],
       })
       toast.success('User updated')
       setEditTarget(null)
       fetchUsers()
-    } catch {
-      toast.error('Failed to update user')
+    } catch (err) {
+      toast.error(axios.isAxiosError(err) ? err.response?.data?.message ?? 'Failed to update user' : 'Failed to update user')
     } finally {
       setSaving(false)
     }
@@ -132,7 +153,7 @@ export default function UsersPage() {
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               placeholder="Search by name or email..."
-              className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 dark:border-[#38444d] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-[#253341] dark:text-white dark:placeholder-[#8b98a5]"
             />
           </div>
           <Button type="submit" variant="secondary" size="sm">Search</Button>
@@ -147,21 +168,24 @@ export default function UsersPage() {
           <select
             value={roleFilter}
             onChange={(e) => { setRoleFilter(e.target.value); setPage(1) }}
-            className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            className="px-3 py-2 text-sm border border-gray-300 dark:border-[#38444d] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-[#253341] dark:text-white"
           >
             <option value="">All roles</option>
+            <option value="super_admin">Super Admin</option>
             <option value="admin">Admin</option>
             <option value="user">User</option>
           </select>
-          <Button size="sm" onClick={() => setShowCreate(true)}>
-            <UserPlus size={16} />
-            Add User
-          </Button>
+          {isSuperAdmin && (
+            <Button size="sm" onClick={() => setShowCreate(true)}>
+              <UserPlus size={16} />
+              Add User
+            </Button>
+          )}
         </div>
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="bg-white dark:bg-[#1e2732] rounded-xl shadow-sm border border-gray-100 dark:border-[#38444d] overflow-hidden">
         {loading ? (
           <PageLoader />
         ) : users.length === 0 ? (
@@ -174,57 +198,48 @@ export default function UsersPage() {
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="bg-gray-50 border-b border-gray-100">
-                    <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-3">User</th>
-                    <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-3">Role</th>
-                    <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-3">Joined</th>
+                  <tr className="bg-gray-50 dark:bg-[#253341] border-b border-gray-100 dark:border-[#38444d]">
+                    <th className="text-left text-xs font-semibold text-gray-500 dark:text-[#8b98a5] uppercase tracking-wider px-6 py-3">User</th>
+                    <th className="text-left text-xs font-semibold text-gray-500 dark:text-[#8b98a5] uppercase tracking-wider px-6 py-3">Role</th>
+                    <th className="text-left text-xs font-semibold text-gray-500 dark:text-[#8b98a5] uppercase tracking-wider px-6 py-3">Joined</th>
                     <th className="px-6 py-3" />
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-50">
+                <tbody className="divide-y divide-gray-50 dark:divide-[#253341]">
                   {users.map((u) => (
-                    <tr key={u.id} className="hover:bg-gray-50 transition-colors">
+                    <tr key={u.id} className="hover:bg-gray-50 dark:hover:bg-[#253341] transition-colors">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
+                          <div className="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-semibold shrink-0">
                             {u.name.charAt(0).toUpperCase()}
                           </div>
                           <div>
-                            <p className="font-medium text-gray-900 flex items-center gap-2">
+                            <p className="font-medium text-gray-900 dark:text-white flex items-center gap-2">
                               {u.name}
                               {u.id === currentUser?.id && (
                                 <Badge variant="blue">You</Badge>
                               )}
                             </p>
-                            <p className="text-xs text-gray-500">{u.email}</p>
+                            <p className="text-xs text-gray-500 dark:text-[#8b98a5]">{u.email}</p>
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="flex items-center gap-1.5">
-                          {u.role === 'admin' ? (
-                            <Shield size={14} className="text-purple-500" />
-                          ) : (
-                            <UserCheck size={14} className="text-blue-500" />
-                          )}
-                          <Badge variant={u.role === 'admin' ? 'purple' : 'blue'} className="capitalize">
-                            {u.role}
-                          </Badge>
-                        </div>
+                        <RoleBadge role={u.role} />
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">{formatDate(u.createdAt)}</td>
+                      <td className="px-6 py-4 text-sm text-gray-500 dark:text-[#8b98a5]">{formatDate(u.createdAt)}</td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-1 justify-end">
                           <button
                             onClick={() => openEdit(u)}
-                            className="p-1.5 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50 transition-colors"
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors"
                           >
                             <Edit size={15} />
                           </button>
-                          {u.id !== currentUser?.id && (
+                          {isSuperAdmin && u.id !== currentUser?.id && (
                             <button
                               onClick={() => setDeleteTarget(u)}
-                              className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                              className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
                             >
                               <Trash2 size={15} />
                             </button>
@@ -241,29 +256,32 @@ export default function UsersPage() {
         )}
       </div>
 
-      {/* Create Modal */}
-      <Modal open={showCreate} title="Add User" onClose={() => setShowCreate(false)}>
-        <div className="space-y-4">
-          <Input label="Name" value={createForm.name} onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })} placeholder="Full name" />
-          <Input label="Email" type="email" value={createForm.email} onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })} placeholder="email@example.com" />
-          <Input label="Password" type="password" value={createForm.password} onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })} placeholder="Min 8 characters" />
-          <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-gray-700">Role</label>
-            <select
-              value={createForm.role}
-              onChange={(e) => setCreateForm({ ...createForm, role: e.target.value })}
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-            >
-              <option value="user">User</option>
-              <option value="admin">Admin</option>
-            </select>
+      {/* Create Modal — super_admin only */}
+      {isSuperAdmin && (
+        <Modal open={showCreate} title="Add User" onClose={() => setShowCreate(false)}>
+          <div className="space-y-4">
+            <Input label="Name" value={createForm.name} onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })} placeholder="Full name" />
+            <Input label="Email" type="email" value={createForm.email} onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })} placeholder="email@example.com" />
+            <Input label="Password" type="password" value={createForm.password} onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })} placeholder="Min 6 characters" />
+            <div className="flex flex-col gap-1">
+              <label className="text-sm font-medium text-gray-700 dark:text-[#8b98a5]">Role</label>
+              <select
+                value={createForm.role}
+                onChange={(e) => setCreateForm({ ...createForm, role: e.target.value })}
+                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-[#38444d] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-[#253341] dark:text-white"
+              >
+                <option value="user">User</option>
+                <option value="admin">Admin</option>
+                <option value="super_admin">Super Admin</option>
+              </select>
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <Button variant="secondary" onClick={() => setShowCreate(false)} disabled={creating}>Cancel</Button>
+              <Button onClick={handleCreate} loading={creating}>Create User</Button>
+            </div>
           </div>
-          <div className="flex justify-end gap-3 pt-2">
-            <Button variant="secondary" onClick={() => setShowCreate(false)} disabled={creating}>Cancel</Button>
-            <Button onClick={handleCreate} loading={creating}>Create User</Button>
-          </div>
-        </div>
-      </Modal>
+        </Modal>
+      )}
 
       {/* Edit Modal */}
       <Modal open={!!editTarget} title="Edit User" onClose={() => setEditTarget(null)}>
@@ -271,15 +289,20 @@ export default function UsersPage() {
           <Input label="Name" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} />
           <Input label="Email" type="email" value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} />
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-gray-700">Role</label>
+            <label className="text-sm font-medium text-gray-700 dark:text-[#8b98a5]">Role</label>
             <select
               value={editForm.role}
               onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              disabled={!isSuperAdmin}
+              className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-[#38444d] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-[#253341] dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <option value="user">User</option>
               <option value="admin">Admin</option>
+              {isSuperAdmin && <option value="super_admin">Super Admin</option>}
             </select>
+            {!isSuperAdmin && (
+              <p className="text-xs text-gray-400 dark:text-[#8b98a5] mt-1">Only super admins can change roles.</p>
+            )}
           </div>
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="secondary" onClick={() => setEditTarget(null)} disabled={saving}>Cancel</Button>
