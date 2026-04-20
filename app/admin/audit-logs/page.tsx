@@ -25,9 +25,11 @@ export default function AuditLogsPage() {
   const [page, setPage] = useState(1)
   const [entity, setEntity] = useState('')
   const [loading, setLoading] = useState(true)
+  const [fetchError, setFetchError] = useState(false)
 
   useEffect(() => {
     setLoading(true)
+    setFetchError(false)
     auditLogsApi.getAll({ page, limit: 20, entity: entity || undefined })
       .then(res => {
         setLogs(res.logs)
@@ -40,20 +42,26 @@ export default function AuditLogsPage() {
           hasPrevPage: res.currentPage > 1,
         })
       })
-      .catch(() => toast.error('Failed to load audit logs'))
+      .catch(() => { toast.error('Failed to load audit logs'); setFetchError(true) })
       .finally(() => setLoading(false))
   }, [page, entity])
 
   if (loading) return <PageLoader />
+  if (fetchError) return (
+    <div className="text-center py-24 text-gray-400">
+      <p className="text-lg font-medium">Failed to load audit logs</p>
+      <p className="text-sm mt-1">Check your connection and try refreshing.</p>
+    </div>
+  )
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Audit Logs</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Audit Logs</h1>
         <select
           value={entity}
           onChange={e => { setEntity(e.target.value); setPage(1) }}
-          className="text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="text-sm border border-gray-200 dark:border-[#38444d] rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-[#253341] dark:text-white"
         >
           <option value="">All Entities</option>
           {['product', 'user', 'order'].map(e => (
@@ -62,37 +70,37 @@ export default function AuditLogsPage() {
         </select>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="bg-white dark:bg-[#1e2732] rounded-xl shadow-sm border border-gray-100 dark:border-[#38444d] overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-100">
-                <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-3">Action</th>
-                <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-3">Entity</th>
-                <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-3">User</th>
-                <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-3">Details</th>
-                <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-3">IP</th>
-                <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-3">Date</th>
+              <tr className="bg-gray-50 dark:bg-[#253341] border-b border-gray-100 dark:border-[#38444d]">
+                <th scope="col" className="text-left text-xs font-semibold text-gray-500 dark:text-[#8b98a5] uppercase tracking-wider px-6 py-3">Action</th>
+                <th scope="col" className="text-left text-xs font-semibold text-gray-500 dark:text-[#8b98a5] uppercase tracking-wider px-6 py-3">Entity</th>
+                <th scope="col" className="text-left text-xs font-semibold text-gray-500 dark:text-[#8b98a5] uppercase tracking-wider px-6 py-3">User</th>
+                <th scope="col" className="text-left text-xs font-semibold text-gray-500 dark:text-[#8b98a5] uppercase tracking-wider px-6 py-3">Details</th>
+                <th scope="col" className="text-left text-xs font-semibold text-gray-500 dark:text-[#8b98a5] uppercase tracking-wider px-6 py-3">IP</th>
+                <th scope="col" className="text-left text-xs font-semibold text-gray-500 dark:text-[#8b98a5] uppercase tracking-wider px-6 py-3">Date</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody className="divide-y divide-gray-50 dark:divide-[#253341]">
               {logs.map(log => (
-                <tr key={log.id} className="hover:bg-gray-50 transition-colors">
+                <tr key={log.id} className="hover:bg-gray-50 dark:hover:bg-[#253341] transition-colors">
                   <td className="px-6 py-4">
                     <Badge variant={ACTION_VARIANT[log.action] ?? 'gray'}>{log.action}</Badge>
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">
+                  <td className="px-6 py-4 text-sm text-gray-600 dark:text-[#8b98a5]">
                     {log.entity} {log.entityId ? `#${log.entityId}` : ''}
                   </td>
                   <td className="px-6 py-4">
-                    <p className="text-sm text-gray-900">{log.user?.name ?? '—'}</p>
-                    <p className="text-xs text-gray-400">{log.user?.email ?? ''}</p>
+                    <p className="text-sm text-gray-900 dark:text-white">{log.user?.name ?? '—'}</p>
+                    <p className="text-xs text-gray-400 dark:text-[#8b98a5]">{log.user?.email ?? ''}</p>
                   </td>
-                  <td className="px-6 py-4 text-xs text-gray-500 font-mono max-w-50 truncate">
+                  <td className="px-6 py-4 text-xs text-gray-500 dark:text-[#8b98a5] font-mono max-w-50 truncate">
                     {log.details ? JSON.stringify(log.details) : '—'}
                   </td>
-                  <td className="px-6 py-4 text-xs text-gray-400">{log.ipAddress ?? '—'}</td>
-                  <td className="px-6 py-4 text-sm text-gray-500">{formatDate(log.createdAt)}</td>
+                  <td className="px-6 py-4 text-xs text-gray-400 dark:text-[#8b98a5]">{log.ipAddress ?? '—'}</td>
+                  <td className="px-6 py-4 text-sm text-gray-500 dark:text-[#8b98a5]">{formatDate(log.createdAt)}</td>
                 </tr>
               ))}
             </tbody>

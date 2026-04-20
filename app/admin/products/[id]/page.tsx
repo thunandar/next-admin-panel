@@ -19,10 +19,11 @@ export default function ProductDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const { user } = useAuth()
-  const isAdmin = user?.role === 'admin'
+  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin'
 
   const [product, setProduct] = useState<Product | null>(null)
   const [loading, setLoading] = useState(true)
+  const [fetchError, setFetchError] = useState(false)
   const [activeImg, setActiveImg] = useState(0)
   const [showDelete, setShowDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -31,7 +32,7 @@ export default function ProductDetailPage() {
     productsApi
       .getById(Number(id))
       .then(({ data }) => setProduct(data))
-      .catch(() => toast.error('Product not found'))
+      .catch(() => { toast.error('Product not found'); setFetchError(true) })
       .finally(() => setLoading(false))
   }, [id])
 
@@ -49,7 +50,14 @@ export default function ProductDetailPage() {
   }
 
   if (loading) return <PageLoader />
-  if (!product) return null
+  if (fetchError || !product) return (
+    <div className="text-center py-24 text-gray-400">
+      <p className="text-lg font-medium">Product not found</p>
+      <Link href="/admin/products" className="text-blue-600 hover:underline text-sm mt-2 inline-block">
+        Back to products
+      </Link>
+    </div>
+  )
 
   const images = product.ProductImages || []
   const status = getStockStatus(product.stock)
@@ -61,7 +69,7 @@ export default function ProductDetailPage() {
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <Link href="/admin/products">
-            <button className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors">
+            <button aria-label="Back to products" className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors">
               <ArrowLeft size={18} />
             </button>
           </Link>

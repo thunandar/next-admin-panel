@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -10,6 +10,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import toast from 'react-hot-toast'
 import { productsApi, categoriesApi } from '@/lib/api'
+import { getApiErrorMessage } from '@/lib/utils'
 import Button from '@/components/ui/Button'
 
 const schema = z.object({
@@ -27,16 +28,23 @@ export default function NewProductPage() {
   const [images, setImages] = useState<File[]>([])
   const [previews, setPreviews] = useState<string[]>([])
   const [categories, setCategories] = useState<string[]>([])
+  const previewsRef = useRef<string[]>([])
 
   useEffect(() => {
     categoriesApi.getAll().then(res => setCategories(res.categories)).catch(() => {})
   }, [])
 
+  // Keep ref in sync so the cleanup below always sees the latest previews
+  useEffect(() => { previewsRef.current = previews }, [previews])
+  // Revoke all object URLs on unmount to avoid memory leaks
+  useEffect(() => { return () => { previewsRef.current.forEach(URL.revokeObjectURL) } }, [])
+
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<FormData>({ resolver: zodResolver(schema) })
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } = useForm<FormData>({ resolver: zodResolver(schema) as any })
 
   const handleImages = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
@@ -47,7 +55,8 @@ export default function NewProductPage() {
   }
 
   const removeImage = (i: number) => {
-    URL.revokeObjectURL(previews[i])
+    const url = previews[i]
+    if (url) URL.revokeObjectURL(url)
     setImages(prev => prev.filter((_, idx) => idx !== i))
     setPreviews(prev => prev.filter((_, idx) => idx !== i))
   }
@@ -61,8 +70,7 @@ export default function NewProductPage() {
       toast.success('Product created!')
       router.push('/admin/products')
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to create product'
-      toast.error(msg)
+      toast.error(getApiErrorMessage(err, 'Failed to create product'))
     }
   }
 
@@ -75,7 +83,7 @@ export default function NewProductPage() {
     <div>
       <div className="flex items-center gap-3 mb-6">
         <Link href="/admin/products">
-          <button className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors">
+          <button aria-label="Back to products" className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors">
             <ArrowLeft size={18} />
           </button>
         </Link>
@@ -85,7 +93,8 @@ export default function NewProductPage() {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)}>
+      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+      <form onSubmit={(handleSubmit as any)(onSubmit)}>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-4">
             <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 space-y-4">

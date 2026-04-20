@@ -20,7 +20,7 @@ export interface Product {
   id: number
   name: string
   description: string | null
-  price: string | number
+  price: number
   stock: number
   category: string | null
   ProductImages: ProductImage[]
@@ -110,7 +110,7 @@ export interface OrderItem {
   orderId: number
   productId: number
   quantity: number
-  price: string | number
+  price: number
   product?: Product
 }
 
@@ -118,7 +118,7 @@ export interface Order {
   id: number
   userId: number
   status: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled'
-  totalAmount: string | number
+  totalAmount: number
   shippingAddress: string | null
   notes: string | null
   items: OrderItem[]

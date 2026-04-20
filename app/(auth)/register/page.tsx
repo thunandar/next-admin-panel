@@ -2,66 +2,40 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
 import { Box, Eye, EyeOff } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '@/context/AuthContext'
 import Button from '@/components/ui/Button'
+import { getApiErrorMessage } from '@/lib/utils'
+
+const schema = z.object({
+  name: z.string().min(2, 'Name must be at least 2 characters'),
+  email: z.string().email('Invalid email address'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+})
+
+type FormData = z.infer<typeof schema>
 
 export default function RegisterPage() {
-  const { register } = useAuth()
-  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'user' as 'admin' | 'user' })
+  const { register: registerUser } = useAuth()
   const [showPass, setShowPass] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [errors, setErrors] = useState<Record<string, string>>({})
 
-  const validate = () => {
-    const e: Record<string, string> = {}
-    if (!form.name || form.name.length < 2) e.name = 'Name must be at least 2 characters'
-    if (!form.email) e.email = 'Email is required'
-    else if (!/\S+@\S+\.\S+/.test(form.email)) e.email = 'Invalid email address'
-    if (!form.password || form.password.length < 6) e.password = 'Password must be at least 6 characters'
-    return e
-  }
+  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormData>({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(schema) as any,
+  })
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const errs = validate()
-    if (Object.keys(errs).length) { setErrors(errs); return }
-    setErrors({})
-    setLoading(true)
+  const onSubmit = async (data: FormData) => {
     try {
-      await register(form)
+      await registerUser({ ...data, role: 'admin' })
       toast.success('Account created!')
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Registration failed'
-      toast.error(msg)
-    } finally {
-      setLoading(false)
+      toast.error(getApiErrorMessage(err, 'Registration failed'))
     }
   }
-
-  const field = (
-    key: 'name' | 'email' | 'password',
-    label: string,
-    type: string,
-    placeholder: string,
-    extra?: React.ReactNode,
-  ) => (
-    <div className="flex flex-col gap-1">
-      <label className="text-sm font-medium text-slate-300">{label}</label>
-      <div className="relative">
-        <input
-          type={key === 'password' ? (showPass ? 'text' : 'password') : type}
-          placeholder={placeholder}
-          value={form[key]}
-          onChange={(e) => setForm({ ...form, [key]: e.target.value })}
-          className="w-full px-3 py-2 pr-10 text-sm bg-white/10 border border-white/20 rounded-lg text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        />
-        {extra}
-      </div>
-      {errors[key] && <p className="text-xs text-red-400">{errors[key]}</p>}
-    </div>
-  )
 
   return (
     <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-8 shadow-2xl">
@@ -73,36 +47,55 @@ export default function RegisterPage() {
         <p className="text-slate-400 mt-1">Join ProductHub today</p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {field('name', 'Full Name', 'text', 'John Doe')}
-        {field('email', 'Email', 'email', 'you@example.com')}
-        {field(
-          'password',
-          'Password',
-          'password',
-          '••••••••',
-          <button
-            type="button"
-            onClick={() => setShowPass(!showPass)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
-          >
-            {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
-          </button>,
-        )}
-
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-slate-300">Role</label>
-          <select
-            value={form.role}
-            onChange={(e) => setForm({ ...form, role: e.target.value as 'admin' | 'user' })}
-            className="w-full px-3 py-2 text-sm bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="user" className="bg-slate-800">User</option>
-            <option value="admin" className="bg-slate-800">Admin</option>
-          </select>
+          <label htmlFor="name" className="text-sm font-medium text-slate-300">Full Name</label>
+          <input
+            id="name"
+            type="text"
+            placeholder="John Doe"
+            {...register('name')}
+            className="w-full px-3 py-2 text-sm bg-white/10 border border-white/20 rounded-lg text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+          {errors.name && <p className="text-xs text-red-400">{errors.name.message}</p>}
         </div>
 
-        <Button type="submit" loading={loading} className="w-full mt-2" size="lg">
+        <div className="flex flex-col gap-1">
+          <label htmlFor="email" className="text-sm font-medium text-slate-300">Email</label>
+          <input
+            id="email"
+            type="email"
+            placeholder="you@example.com"
+            {...register('email')}
+            className="w-full px-3 py-2 text-sm bg-white/10 border border-white/20 rounded-lg text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+          {errors.email && <p className="text-xs text-red-400">{errors.email.message}</p>}
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label htmlFor="password" className="text-sm font-medium text-slate-300">Password</label>
+          <div className="relative">
+            <input
+              id="password"
+              type={showPass ? 'text' : 'password'}
+              placeholder="••••••••"
+              {...register('password')}
+              className="w-full px-3 py-2 pr-10 text-sm bg-white/10 border border-white/20 rounded-lg text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            <button
+              type="button"
+              aria-label={showPass ? 'Hide password' : 'Show password'}
+              aria-pressed={showPass}
+              onClick={() => setShowPass(!showPass)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+            >
+              {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          </div>
+          {errors.password && <p className="text-xs text-red-400">{errors.password.message}</p>}
+        </div>
+
+        <Button type="submit" loading={isSubmitting} className="w-full mt-2" size="lg">
           Create account
         </Button>
       </form>

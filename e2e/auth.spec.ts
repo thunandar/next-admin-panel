@@ -3,8 +3,9 @@ import { test, expect } from '@playwright/test'
 // These run without auth state (login page tests)
 test.use({ storageState: { cookies: [], origins: [] } })
 
-const EMAIL = process.env.ADMIN_EMAIL || 'superadmin@example.com'
-const PASSWORD = process.env.ADMIN_PASSWORD || 'password123'
+const EMAIL = process.env.ADMIN_EMAIL
+const PASSWORD = process.env.ADMIN_PASSWORD
+if (!EMAIL || !PASSWORD) throw new Error('ADMIN_EMAIL and ADMIN_PASSWORD env vars must be set before running e2e tests')
 
 test('login page loads correctly', async ({ page }) => {
   await page.goto('/login')

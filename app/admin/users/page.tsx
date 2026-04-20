@@ -51,10 +51,10 @@ export default function UsersPage() {
   const [deleteTarget, setDeleteTarget] = useState<User | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [editTarget, setEditTarget] = useState<User | null>(null)
-  const [editForm, setEditForm] = useState({ name: '', email: '', role: '' })
+  const [editForm, setEditForm] = useState<{ name: string; email: string; role: User['role'] }>({ name: '', email: '', role: 'user' })
   const [saving, setSaving] = useState(false)
   const [showCreate, setShowCreate] = useState(false)
-  const [createForm, setCreateForm] = useState({ name: '', email: '', password: '', role: 'user' })
+  const [createForm, setCreateForm] = useState<{ name: string; email: string; password: string; role: User['role'] }>({ name: '', email: '', password: '', role: 'user' })
   const [creating, setCreating] = useState(false)
 
   const fetchUsers = useCallback(async () => {
@@ -90,7 +90,7 @@ export default function UsersPage() {
         name: createForm.name,
         email: createForm.email,
         password: createForm.password,
-        role: createForm.role as User['role'],
+        role: createForm.role,
       })
       toast.success('User created')
       setShowCreate(false)
@@ -115,7 +115,7 @@ export default function UsersPage() {
       await usersApi.update(editTarget.id, {
         name: editForm.name,
         email: editForm.email,
-        role: editForm.role as User['role'],
+        role: editForm.role,
       })
       toast.success('User updated')
       setEditTarget(null)
@@ -199,10 +199,10 @@ export default function UsersPage() {
               <table className="w-full">
                 <thead>
                   <tr className="bg-gray-50 dark:bg-[#253341] border-b border-gray-100 dark:border-[#38444d]">
-                    <th className="text-left text-xs font-semibold text-gray-500 dark:text-[#8b98a5] uppercase tracking-wider px-6 py-3">User</th>
-                    <th className="text-left text-xs font-semibold text-gray-500 dark:text-[#8b98a5] uppercase tracking-wider px-6 py-3">Role</th>
-                    <th className="text-left text-xs font-semibold text-gray-500 dark:text-[#8b98a5] uppercase tracking-wider px-6 py-3">Joined</th>
-                    <th className="px-6 py-3" />
+                    <th scope="col" className="text-left text-xs font-semibold text-gray-500 dark:text-[#8b98a5] uppercase tracking-wider px-6 py-3">User</th>
+                    <th scope="col" className="text-left text-xs font-semibold text-gray-500 dark:text-[#8b98a5] uppercase tracking-wider px-6 py-3">Role</th>
+                    <th scope="col" className="text-left text-xs font-semibold text-gray-500 dark:text-[#8b98a5] uppercase tracking-wider px-6 py-3">Joined</th>
+                    <th scope="col" className="px-6 py-3"><span className="sr-only">Actions</span></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50 dark:divide-[#253341]">
@@ -231,6 +231,7 @@ export default function UsersPage() {
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-1 justify-end">
                           <button
+                            aria-label={`Edit ${u.name}`}
                             onClick={() => openEdit(u)}
                             className="p-1.5 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors"
                           >
@@ -238,6 +239,7 @@ export default function UsersPage() {
                           </button>
                           {isSuperAdmin && u.id !== currentUser?.id && (
                             <button
+                              aria-label={`Delete ${u.name}`}
                               onClick={() => setDeleteTarget(u)}
                               className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
                             >
@@ -267,7 +269,7 @@ export default function UsersPage() {
               <label className="text-sm font-medium text-gray-700 dark:text-[#8b98a5]">Role</label>
               <select
                 value={createForm.role}
-                onChange={(e) => setCreateForm({ ...createForm, role: e.target.value })}
+                onChange={(e) => setCreateForm({ ...createForm, role: e.target.value as User['role'] })}
                 className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-[#38444d] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-[#253341] dark:text-white"
               >
                 <option value="user">User</option>
@@ -292,7 +294,7 @@ export default function UsersPage() {
             <label className="text-sm font-medium text-gray-700 dark:text-[#8b98a5]">Role</label>
             <select
               value={editForm.role}
-              onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
+              onChange={(e) => setEditForm({ ...editForm, role: e.target.value as User['role'] })}
               disabled={!isSuperAdmin}
               className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-[#38444d] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-[#253341] dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
             >

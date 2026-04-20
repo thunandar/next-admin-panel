@@ -1,7 +1,10 @@
 import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios'
 import type {
+  AuditLog,
   AuthResponse,
   CreateProductData,
+  DashboardAnalytics,
+  Order,
   PaginatedResponse,
   Product,
   ProductFilters,
@@ -14,21 +17,69 @@ import type {
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
 
+const buildParams = (obj: object): URLSearchParams => {
+  const params = new URLSearchParams()
+  Object.entries(obj).forEach(([k, v]: [string, unknown]) => {
+    if (v !== undefined && v !== null && v !== '') params.set(k, String(v))
+  })
+  return params
+}
+
+const buildPaginatedResponse = <T>(
+  data: T[],
+  currentPage: number,
+  totalPages: number,
+  totalItems: number,
+  itemsPerPage: number
+): PaginatedResponse<T> => ({
+  message: '',
+  data,
+  pagination: {
+    currentPage,
+    totalPages,
+    totalItems,
+    itemsPerPage,
+    hasNextPage: currentPage < totalPages,
+    hasPrevPage: currentPage > 1,
+  },
+})
+
+const buildFormData = (data: Record<string, unknown>, files?: File[], fileKey = 'images'): FormData => {
+  const form = new FormData()
+  Object.entries(data).forEach(([k, v]) => { if (v !== undefined && v !== null) form.append(k, String(v)) })
+  files?.forEach(f => form.append(fileKey, f))
+  return form
+}
+
+// Normalize product prices from the backend (may arrive as strings)
+const normalizeProduct = (p: unknown): Product => {
+  const prod = p as Product & { price: string | number }
+  return { ...prod, price: Number(prod.price) }
+}
+
+// Normalize order amounts from the backend (may arrive as strings)
+const normalizeOrder = (o: unknown): Order => {
+  const ord = o as Order & { totalAmount: string | number }
+  return { ...ord, totalAmount: Number(ord.totalAmount) }
+}
+
 // ─── Token Management ────────────────────────────────────────────────────────
-// admin_access_token: stored in localStorage + non-HttpOnly cookie (proxy reads it)
-// refresh_token: stored in HttpOnly cookie only (JS cannot access it)
+// Access token lives in memory only — no localStorage, reducing XSS exposure.
+// A non-HttpOnly cookie copy is kept solely so the middleware can read it for
+// server-side route guarding. The refresh token stays in an HttpOnly cookie.
+
+let _accessToken: string | null = null
 
 export const tokenStore = {
-  getAccess: () => (typeof window !== 'undefined' ? localStorage.getItem('admin_access_token') : null),
+  getAccess: () => _accessToken,
   set: (access: string) => {
+    _accessToken = access
     if (typeof window === 'undefined') return
-    localStorage.setItem('admin_access_token', access)
-    // 30 days matches the refresh token lifetime; resets on every silent refresh
-    document.cookie = `admin_access_token=${access}; path=/; max-age=${30 * 24 * 60 * 60}; SameSite=Lax`
+    document.cookie = `admin_access_token=${access}; path=/; max-age=${30 * 24 * 60 * 60}; SameSite=Strict`
   },
   clear: () => {
+    _accessToken = null
     if (typeof window === 'undefined') return
-    localStorage.removeItem('admin_access_token')
     document.cookie = 'admin_access_token=; path=/; max-age=0'
   },
 }
@@ -71,7 +122,6 @@ api.interceptors.response.use(
     isRefreshing = true
 
     try {
-      // Call the Next.js API route — it reads the HttpOnly refresh_token cookie
       const res = await axios.post('/api/auth/refresh')
       const { accessToken } = res.data.data
       tokenStore.set(accessToken)
@@ -81,7 +131,6 @@ api.interceptors.response.use(
     } catch (err) {
       flushQueue(err)
       tokenStore.clear()
-      // Clear the HttpOnly refresh_token cookie via the server route
       await axios.post('/api/auth/logout').catch(() => {})
       if (typeof window !== 'undefined') window.location.href = '/login'
       return Promise.reject(err)
@@ -92,8 +141,6 @@ api.interceptors.response.use(
 )
 
 // ─── Auth API ─────────────────────────────────────────────────────────────────
-// login/register/logout go through Next.js API routes (set HttpOnly cookies)
-// getMe goes directly to backend (uses access token in Authorization header)
 
 export const authApi = {
   register: async (data: RegisterData): Promise<AuthResponse> => {
@@ -108,7 +155,7 @@ export const authApi = {
   },
   logout: async (): Promise<void> => {
     try { await api.post('/auth/logout') } catch { /* ignore if access token already expired */ }
-    await axios.post('/api/auth/logout') // clears HttpOnly refresh_token cookie
+    await axios.post('/api/auth/logout')
   },
   getMe: async (): Promise<{ user: User }> => {
     const res = await api.get('/auth/me')
@@ -120,61 +167,27 @@ export const authApi = {
 
 export const productsApi = {
   getAll: async (filters: ProductFilters = {}): Promise<PaginatedResponse<Product>> => {
-    const params = new URLSearchParams()
-    Object.entries(filters).forEach(([k, v]) => {
-      if (v !== undefined && v !== null && v !== '') params.set(k, String(v))
-    })
-    const res = await api.get(`/products?${params}`)
+    const res = await api.get(`/products?${buildParams(filters)}`)
     const { products, currentPage, totalPages, totalProducts } = res.data.data
-    return {
-      message: '',
-      data: products,
-      pagination: {
-        currentPage,
-        totalPages,
-        totalItems: totalProducts,
-        itemsPerPage: Number(filters.limit) || 10,
-        hasNextPage: currentPage < totalPages,
-        hasPrevPage: currentPage > 1,
-      },
-    }
+    return buildPaginatedResponse(products.map(normalizeProduct), currentPage, totalPages, totalProducts, Number(filters.limit) || 10)
   },
 
   getById: async (id: number): Promise<SingleResponse<Product>> => {
     const res = await api.get(`/products/${id}`)
-    return { message: '', data: res.data.data }
+    return { message: '', data: normalizeProduct(res.data.data) }
   },
 
   search: async (term: string, page = 1, limit = 10): Promise<PaginatedResponse<Product>> => {
-    const res = await api.get(`/products/search?search=${encodeURIComponent(term)}&page=${page}&limit=${limit}`)
+    const res = await api.get(`/products/search?${buildParams({ search: term, page, limit })}`)
     const { products, currentPage, totalPages, totalProducts } = res.data.data
-    return {
-      message: '',
-      data: products,
-      pagination: {
-        currentPage,
-        totalPages,
-        totalItems: totalProducts,
-        itemsPerPage: limit,
-        hasNextPage: currentPage < totalPages,
-        hasPrevPage: currentPage > 1,
-      },
-    }
+    return buildPaginatedResponse(products.map(normalizeProduct), currentPage, totalPages, totalProducts, limit)
   },
 
-  create: async (data: CreateProductData, images?: File[]): Promise<SingleResponse<Product>> => {
-    const form = new FormData()
-    Object.entries(data).forEach(([k, v]) => { if (v !== undefined) form.append(k, String(v)) })
-    images?.forEach((f) => form.append('images', f))
-    return (await api.post('/products', form, { headers: { 'Content-Type': 'multipart/form-data' } })).data
-  },
+  create: async (data: CreateProductData, images?: File[]): Promise<SingleResponse<Product>> =>
+    (await api.post('/products', buildFormData(data as unknown as Record<string, unknown>, images), { headers: { 'Content-Type': 'multipart/form-data' } })).data,
 
-  update: async (id: number, data: UpdateProductData, images?: File[]): Promise<SingleResponse<Product>> => {
-    const form = new FormData()
-    Object.entries(data).forEach(([k, v]) => { if (v !== undefined) form.append(k, String(v)) })
-    images?.forEach((f) => form.append('images', f))
-    return (await api.put(`/products/${id}`, form, { headers: { 'Content-Type': 'multipart/form-data' } })).data
-  },
+  update: async (id: number, data: UpdateProductData, images?: File[]): Promise<SingleResponse<Product>> =>
+    (await api.put(`/products/${id}`, buildFormData(data as unknown as Record<string, unknown>, images), { headers: { 'Content-Type': 'multipart/form-data' } })).data,
 
   delete: async (id: number): Promise<void> => { await api.delete(`/products/${id}`) },
 }
@@ -183,24 +196,9 @@ export const productsApi = {
 
 export const usersApi = {
   getAll: async (filters: UserFilters = {}): Promise<PaginatedResponse<User>> => {
-    const params = new URLSearchParams()
-    Object.entries(filters).forEach(([k, v]) => {
-      if (v !== undefined && v !== '') params.set(k, String(v))
-    })
-    const res = await api.get(`/users?${params}`)
+    const res = await api.get(`/users?${buildParams(filters)}`)
     const { users, currentPage, totalPages, totalUsers } = res.data.data
-    return {
-      message: '',
-      data: users,
-      pagination: {
-        currentPage,
-        totalPages,
-        totalItems: totalUsers,
-        itemsPerPage: Number(filters.limit) || 10,
-        hasNextPage: currentPage < totalPages,
-        hasPrevPage: currentPage > 1,
-      },
-    }
+    return buildPaginatedResponse(users, currentPage, totalPages, totalUsers, Number(filters.limit) || 10)
   },
 
   getById: async (id: number): Promise<SingleResponse<User>> => {
@@ -208,15 +206,14 @@ export const usersApi = {
     return { message: '', data: res.data.data }
   },
 
-  // Uses the admin-only POST /api/users route (not the public register endpoint)
   create: async (data: RegisterData): Promise<User> => {
     const res = await api.post('/users', data)
     return res.data.data.user
   },
 
-  update: async (id: number, data: Partial<Pick<User, 'name' | 'email' | 'role'>>) => {
+  update: async (id: number, data: Partial<Pick<User, 'name' | 'email' | 'role'>>): Promise<User> => {
     const res = await api.put(`/users/${id}`, data)
-    return res.data.data
+    return res.data.data as User
   },
 
   delete: async (id: number): Promise<void> => { await api.delete(`/users/${id}`) },
@@ -229,27 +226,26 @@ export const usersApi = {
 // ─── Orders API ───────────────────────────────────────────────────────────────
 
 export const ordersApi = {
-  getAll: async (page = 1, limit = 10, status?: string) => {
+  getAll: async (page = 1, limit = 10, status?: string): Promise<{ orders: Order[]; totalPages: number; currentPage: number; totalOrders: number }> => {
     const params = new URLSearchParams({ page: String(page), limit: String(limit) })
     if (status) params.set('status', status)
     const res = await api.get(`/orders?${params}`)
-    return res.data.data as { orders: import('@/types').Order[]; totalPages: number; currentPage: number; totalOrders: number }
+    const raw = res.data.data as { orders: unknown[]; totalPages: number; currentPage: number; totalOrders: number }
+    return { ...raw, orders: raw.orders.map(normalizeOrder) }
   },
-  updateStatus: async (id: number, status: string) => {
+  updateStatus: async (id: number, status: string): Promise<Order> => {
     const res = await api.patch(`/orders/${id}/status`, { status })
-    return res.data.data as import('@/types').Order
-  }
+    return normalizeOrder(res.data.data)
+  },
 }
 
 // ─── Audit Logs API ───────────────────────────────────────────────────────────
 
 export const auditLogsApi = {
-  getAll: async (params: { page?: number; limit?: number; entity?: string; action?: string } = {}) => {
-    const query = new URLSearchParams()
-    Object.entries(params).forEach(([k, v]) => { if (v !== undefined) query.set(k, String(v)) })
-    const res = await api.get(`/audit-logs?${query}`)
-    return res.data.data as { logs: import('@/types').AuditLog[]; totalPages: number; currentPage: number; totalLogs: number }
-  }
+  getAll: async (params: { page?: number; limit?: number; entity?: string; action?: string } = {}): Promise<{ logs: AuditLog[]; totalPages: number; currentPage: number; totalLogs: number }> => {
+    const res = await api.get(`/audit-logs?${buildParams(params)}`)
+    return res.data.data as { logs: AuditLog[]; totalPages: number; currentPage: number; totalLogs: number }
+  },
 }
 
 // ─── Categories API ───────────────────────────────────────────────────────────
@@ -264,10 +260,10 @@ export const categoriesApi = {
 // ─── Analytics API ────────────────────────────────────────────────────────────
 
 export const analyticsApi = {
-  getDashboard: async (): Promise<import('@/types').DashboardAnalytics> => {
+  getDashboard: async (): Promise<DashboardAnalytics> => {
     const res = await api.get('/analytics/dashboard')
     return res.data.data
-  }
+  },
 }
 
 export default api

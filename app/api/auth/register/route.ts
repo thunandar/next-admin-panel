@@ -1,14 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-const REFRESH_COOKIE_MAX_AGE = 30 * 24 * 60 * 60 // 30 days in seconds
+const REFRESH_COOKIE_MAX_AGE = 30 * 24 * 60 * 60
 
 export async function POST(req: NextRequest) {
-  const body = await req.json()
+  let body: unknown
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ success: false, message: 'Invalid request body' }, { status: 400 })
+  }
 
-  const backendRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/register`, {
+  if (typeof body !== 'object' || body === null) {
+    return NextResponse.json({ success: false, message: 'Invalid request body' }, { status: 400 })
+  }
+
+  const { name, email, password } = body as Record<string, unknown>
+  if (typeof name !== 'string' || !name || typeof email !== 'string' || !email || typeof password !== 'string' || !password) {
+    return NextResponse.json({ success: false, message: 'Name, email and password are required' }, { status: 400 })
+  }
+
+  const backendRes = await fetch(`${process.env.API_URL}/api/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ name, email, password, role: 'admin' }),
   })
 
   const data = await backendRes.json()

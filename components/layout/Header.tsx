@@ -38,6 +38,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
         <div className="flex items-center gap-3">
           <button
             onClick={onMenuClick}
+            aria-label="Open navigation menu"
             className="lg:hidden p-2 rounded-lg text-gray-500 dark:text-[#8b98a5] hover:bg-gray-100 dark:hover:bg-[#253341] transition-colors"
           >
             <Menu size={20} />
@@ -49,8 +50,8 @@ export default function Header({ onMenuClick }: HeaderProps) {
           {/* Dark mode toggle */}
           <button
             onClick={toggleTheme}
+            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
             className="p-2 rounded-lg text-gray-500 dark:text-[#8b98a5] hover:bg-gray-100 dark:hover:bg-[#253341] transition-colors"
-            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
           >
             {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
           </button>

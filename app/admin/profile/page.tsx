@@ -1,93 +1,51 @@
 'use client'
 
 import { useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
 import { Eye, EyeOff, Shield, UserCheck } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { usersApi } from '@/lib/api'
 import { useAuth } from '@/context/AuthContext'
-import { formatDate } from '@/lib/utils'
+import { formatDate, getApiErrorMessage } from '@/lib/utils'
 import Button from '@/components/ui/Button'
-import Input from '@/components/ui/Input'
 import Badge from '@/components/ui/Badge'
+
+const schema = z
+  .object({
+    current: z.string().min(1, 'Current password is required'),
+    newPass: z.string().min(6, 'New password must be at least 6 characters'),
+    confirm: z.string(),
+  })
+  .refine((d) => d.newPass === d.confirm, { message: 'Passwords do not match', path: ['confirm'] })
+  .refine((d) => d.current !== d.newPass, { message: 'New password must be different', path: ['newPass'] })
+
+type FormData = z.infer<typeof schema>
 
 export default function ProfilePage() {
   const { user } = useAuth()
-  const [form, setForm] = useState({ current: '', newPass: '', confirm: '' })
   const [showPass, setShowPass] = useState({ current: false, new: false, confirm: false })
-  const [loading, setLoading] = useState(false)
-  const [errors, setErrors] = useState<Record<string, string>>({})
 
-  const validate = () => {
-    const e: Record<string, string> = {}
-    if (!form.current) e.current = 'Current password is required'
-    if (!form.newPass || form.newPass.length < 6) e.newPass = 'New password must be at least 6 characters'
-    if (form.newPass !== form.confirm) e.confirm = 'Passwords do not match'
-    if (form.current === form.newPass) e.newPass = 'New password must be different'
-    return e
-  }
+  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<FormData>({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(schema) as any,
+  })
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const errs = validate()
-    if (Object.keys(errs).length) { setErrors(errs); return }
-    setErrors({})
-    setLoading(true)
+  const onSubmit = async (data: FormData) => {
     try {
-      await usersApi.changePassword(form.current, form.newPass)
+      await usersApi.changePassword(data.current, data.newPass)
       toast.success('Password changed successfully')
-      setForm({ current: '', newPass: '', confirm: '' })
+      reset()
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Failed to change password'
-      toast.error(msg)
-    } finally {
-      setLoading(false)
+      toast.error(getApiErrorMessage(err, 'Failed to change password'))
     }
   }
-
-  if (!user) return null
 
   const toggle = (key: 'current' | 'new' | 'confirm') =>
     setShowPass((prev) => ({ ...prev, [key]: !prev[key] }))
 
-  const PasswordField = ({
-    label,
-    field,
-    toggleKey,
-    value,
-    error,
-    autoComplete,
-  }: {
-    label: string
-    field: 'current' | 'newPass' | 'confirm'
-    toggleKey: 'current' | 'new' | 'confirm'
-    value: string
-    error?: string
-    autoComplete: string
-  }) => (
-    <div className="flex flex-col gap-1">
-      <label className="text-sm font-medium text-gray-700">{label}</label>
-      <div className="relative">
-        <input
-          type={showPass[toggleKey] ? 'text' : 'password'}
-          value={value}
-          onChange={(e) => setForm({ ...form, [field]: e.target.value })}
-          placeholder="••••••••"
-          autoComplete={autoComplete}
-          className={`w-full px-3 py-2 pr-10 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-            error ? 'border-red-400' : 'border-gray-300'
-          }`}
-        />
-        <button
-          type="button"
-          onClick={() => toggle(toggleKey)}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-        >
-          {showPass[toggleKey] ? <EyeOff size={16} /> : <Eye size={16} />}
-        </button>
-      </div>
-      {error && <p className="text-xs text-red-600">{error}</p>}
-    </div>
-  )
+  if (!user) return null
 
   return (
     <div className="max-w-xl mx-auto space-y-4">
@@ -129,33 +87,65 @@ export default function ProfilePage() {
       <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
         <h3 className="font-semibold text-gray-900 mb-5">Change Password</h3>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <PasswordField
-            label="Current Password"
-            field="current"
-            toggleKey="current"
-            value={form.current}
-            error={errors.current}
-            autoComplete="current-password"
-          />
-          <PasswordField
-            label="New Password"
-            field="newPass"
-            toggleKey="new"
-            value={form.newPass}
-            error={errors.newPass}
-            autoComplete="new-password"
-          />
-          <PasswordField
-            label="Confirm New Password"
-            field="confirm"
-            toggleKey="confirm"
-            value={form.confirm}
-            error={errors.confirm}
-            autoComplete="new-password"
-          />
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          {/* Current password */}
+          <div className="flex flex-col gap-1">
+            <label htmlFor="current" className="text-sm font-medium text-gray-700">Current Password</label>
+            <div className="relative">
+              <input
+                id="current"
+                type={showPass.current ? 'text' : 'password'}
+                placeholder="••••••••"
+                autoComplete="current-password"
+                {...register('current')}
+                className={`w-full px-3 py-2 pr-10 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.current ? 'border-red-400' : 'border-gray-300'}`}
+              />
+              <button type="button" aria-label={showPass.current ? 'Hide password' : 'Show password'} aria-pressed={showPass.current} onClick={() => toggle('current')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                {showPass.current ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+            {errors.current && <p className="text-xs text-red-600">{errors.current.message}</p>}
+          </div>
 
-          <Button type="submit" loading={loading} className="w-full">
+          {/* New password */}
+          <div className="flex flex-col gap-1">
+            <label htmlFor="newPass" className="text-sm font-medium text-gray-700">New Password</label>
+            <div className="relative">
+              <input
+                id="newPass"
+                type={showPass.new ? 'text' : 'password'}
+                placeholder="••••••••"
+                autoComplete="new-password"
+                {...register('newPass')}
+                className={`w-full px-3 py-2 pr-10 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.newPass ? 'border-red-400' : 'border-gray-300'}`}
+              />
+              <button type="button" aria-label={showPass.new ? 'Hide password' : 'Show password'} aria-pressed={showPass.new} onClick={() => toggle('new')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                {showPass.new ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+            {errors.newPass && <p className="text-xs text-red-600">{errors.newPass.message}</p>}
+          </div>
+
+          {/* Confirm password */}
+          <div className="flex flex-col gap-1">
+            <label htmlFor="confirm" className="text-sm font-medium text-gray-700">Confirm New Password</label>
+            <div className="relative">
+              <input
+                id="confirm"
+                type={showPass.confirm ? 'text' : 'password'}
+                placeholder="••••••••"
+                autoComplete="new-password"
+                {...register('confirm')}
+                className={`w-full px-3 py-2 pr-10 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.confirm ? 'border-red-400' : 'border-gray-300'}`}
+              />
+              <button type="button" aria-label={showPass.confirm ? 'Hide password' : 'Show password'} aria-pressed={showPass.confirm} onClick={() => toggle('confirm')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                {showPass.confirm ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+            {errors.confirm && <p className="text-xs text-red-600">{errors.confirm.message}</p>}
+          </div>
+
+          <Button type="submit" loading={isSubmitting} className="w-full">
             Update Password
           </Button>
         </form>

@@ -22,9 +22,11 @@ export default function AdminOrdersPage() {
   const [page, setPage] = useState(1)
   const [status, setStatus] = useState('')
   const [loading, setLoading] = useState(true)
+  const [fetchError, setFetchError] = useState(false)
 
   useEffect(() => {
     setLoading(true)
+    setFetchError(false)
     ordersApi.getAll(page, 10, status || undefined)
       .then(res => {
         setOrders(res.orders)
@@ -37,7 +39,7 @@ export default function AdminOrdersPage() {
           hasPrevPage: res.currentPage > 1,
         })
       })
-      .catch(() => toast.error('Failed to load orders'))
+      .catch(() => { toast.error('Failed to load orders'); setFetchError(true) })
       .finally(() => setLoading(false))
   }, [page, status])
 
@@ -51,44 +53,50 @@ export default function AdminOrdersPage() {
   }
 
   if (loading) return <PageLoader />
+  if (fetchError) return (
+    <div className="text-center py-24 text-gray-400">
+      <p className="text-lg font-medium">Failed to load orders</p>
+      <p className="text-sm mt-1">Check your connection and try refreshing.</p>
+    </div>
+  )
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">All Orders</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">All Orders</h1>
         <select
           value={status}
           onChange={e => { setStatus(e.target.value); setPage(1) }}
-          className="text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="text-sm border border-gray-200 dark:border-[#38444d] rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-[#253341] dark:text-white"
         >
           <option value="">All Statuses</option>
           {ALL_STATUSES.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
         </select>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="bg-white dark:bg-[#1e2732] rounded-xl shadow-sm border border-gray-100 dark:border-[#38444d] overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-100">
-                <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-3">Order</th>
-                <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-3">Customer</th>
-                <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-3">Items</th>
-                <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-3">Total</th>
-                <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-3">Status</th>
-                <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-3">Date</th>
-                <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wider px-6 py-3">Action</th>
+              <tr className="bg-gray-50 dark:bg-[#253341] border-b border-gray-100 dark:border-[#38444d]">
+                <th scope="col" className="text-left text-xs font-semibold text-gray-500 dark:text-[#8b98a5] uppercase tracking-wider px-6 py-3">Order</th>
+                <th scope="col" className="text-left text-xs font-semibold text-gray-500 dark:text-[#8b98a5] uppercase tracking-wider px-6 py-3">Customer</th>
+                <th scope="col" className="text-left text-xs font-semibold text-gray-500 dark:text-[#8b98a5] uppercase tracking-wider px-6 py-3">Items</th>
+                <th scope="col" className="text-left text-xs font-semibold text-gray-500 dark:text-[#8b98a5] uppercase tracking-wider px-6 py-3">Total</th>
+                <th scope="col" className="text-left text-xs font-semibold text-gray-500 dark:text-[#8b98a5] uppercase tracking-wider px-6 py-3">Status</th>
+                <th scope="col" className="text-left text-xs font-semibold text-gray-500 dark:text-[#8b98a5] uppercase tracking-wider px-6 py-3">Date</th>
+                <th scope="col" className="text-left text-xs font-semibold text-gray-500 dark:text-[#8b98a5] uppercase tracking-wider px-6 py-3">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody className="divide-y divide-gray-50 dark:divide-[#253341]">
               {orders.map(order => (
-                <tr key={order.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4 font-semibold text-gray-900">#{order.id}</td>
+                <tr key={order.id} className="hover:bg-gray-50 dark:hover:bg-[#253341] transition-colors">
+                  <td className="px-6 py-4 font-semibold text-gray-900 dark:text-white">#{order.id}</td>
                   <td className="px-6 py-4">
-                    <p className="text-sm font-medium text-gray-900">{order.user?.name}</p>
-                    <p className="text-xs text-gray-400">{order.user?.email}</p>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">{order.user?.name}</p>
+                    <p className="text-xs text-gray-400 dark:text-[#8b98a5]">{order.user?.email}</p>
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-600">
+                  <td className="px-6 py-4 text-sm text-gray-600 dark:text-[#8b98a5]">
                     {order.items && order.items.length > 0 ? (
                       <div className="space-y-0.5">
                         {order.items.map(item => (
@@ -103,13 +111,13 @@ export default function AdminOrdersPage() {
                       {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
                     </Badge>
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">{formatDate(order.createdAt)}</td>
+                  <td className="px-6 py-4 text-sm text-gray-500 dark:text-[#8b98a5]">{formatDate(order.createdAt)}</td>
                   <td className="px-6 py-4">
                     {order.status !== 'cancelled' && order.status !== 'delivered' && (
                       <select
                         value={order.status}
                         onChange={e => updateStatus(order.id, e.target.value)}
-                        className="text-xs border border-gray-200 rounded-lg px-2 py-1 focus:outline-none"
+                        className="text-xs border border-gray-200 dark:border-[#38444d] rounded-lg px-2 py-1 focus:outline-none bg-white dark:bg-[#253341] dark:text-white"
                       >
                         {ALL_STATUSES.map(s => (
                           <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
