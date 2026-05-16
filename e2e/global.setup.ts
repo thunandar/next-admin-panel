@@ -12,7 +12,7 @@ setup('authenticate as admin', async ({ page }) => {
   fs.mkdirSync(path.dirname(authFile), { recursive: true })
 
   await page.goto('/login')
-  await page.getByPlaceholder('you@example.com').fill(EMAIL)
+  await page.getByPlaceholder('you@nexus.shop').fill(EMAIL)
   await page.getByPlaceholder('••••••••').fill(PASSWORD)
   await page.getByRole('button', { name: 'Sign in' }).click()
 

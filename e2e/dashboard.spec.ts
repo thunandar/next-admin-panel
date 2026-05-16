@@ -5,20 +5,31 @@ test.beforeEach(async ({ page }) => {
 })
 
 test('dashboard loads and shows stat cards', async ({ page }) => {
-  await expect(page.getByText('Total Revenue')).toBeVisible()
-  await expect(page.getByText('Total Orders')).toBeVisible()
-  await expect(page.getByText('Pending Orders')).toBeVisible()
-  await expect(page.getByText('Total Users')).toBeVisible()
-  await expect(page.getByText('Total Products')).toBeVisible()
+  await page.waitForLoadState('networkidle')
+  await expect(page.getByText('Revenue', { exact: true })).toBeVisible()
+  await expect(page.getByText('Orders', { exact: true }).first()).toBeVisible()
+  await expect(page.getByText('Visitors', { exact: true })).toBeVisible()
+  await expect(page.getByText('Conversion', { exact: true })).toBeVisible()
 })
 
-test('stat cards link to correct pages', async ({ page }) => {
-  await page.getByText('Total Products').click()
+test('top-products card opens its product detail', async ({ page }) => {
+  await page.waitForLoadState('networkidle')
+  // Top products widget lists clickable product names; clicking one navigates
+  // to /admin/products/:id. If there's nothing to click, skip — seed data may
+  // not include any orders yet.
+  const firstTopProduct = page
+    .getByText(/top products/i)
+    .locator('..')
+    .getByRole('link')
+    .first()
+  if (!(await firstTopProduct.count())) test.skip()
+  await firstTopProduct.click()
   await expect(page).toHaveURL(/products/)
 })
 
-test('dashboard shows welcome message with user name', async ({ page }) => {
-  await expect(page.getByText('Welcome back,')).toBeVisible()
+test('dashboard greets the user by first name', async ({ page }) => {
+  // Greeting is "Good morning|afternoon|evening, <firstName>". Match any of them.
+  await expect(page.getByRole('heading', { name: /good (morning|afternoon|evening)/i })).toBeVisible()
 })
 
 test('sidebar navigation links work', async ({ page }) => {

@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useId, useRef } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import Button from './Button'
 
@@ -10,6 +11,13 @@ interface ModalProps {
   description?: string
   onClose: () => void
   children?: React.ReactNode
+  size?: 'sm' | 'md' | 'lg'
+}
+
+const SIZE_CLASS: Record<NonNullable<ModalProps['size']>, string> = {
+  sm: 'max-w-md',
+  md: 'max-w-lg',
+  lg: 'max-w-2xl',
 }
 
 interface ConfirmModalProps {
@@ -22,9 +30,12 @@ interface ConfirmModalProps {
   onClose: () => void
 }
 
-export default function Modal({ open, title, description, onClose, children }: ModalProps) {
+export default function Modal({ open, title, description, onClose, children, size = 'md' }: ModalProps) {
   const titleId = useId()
   const dialogRef = useRef<HTMLDivElement>(null)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => { setMounted(true) }, [])
 
   useEffect(() => {
     if (open) document.body.style.overflow = 'hidden'
@@ -61,9 +72,9 @@ export default function Modal({ open, title, description, onClose, children }: M
     return () => document.removeEventListener('keydown', trap)
   }, [open])
 
-  if (!open) return null
+  if (!open || !mounted) return null
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
       <div
@@ -71,7 +82,7 @@ export default function Modal({ open, title, description, onClose, children }: M
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="relative bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
+        className={`relative bg-white rounded-xl shadow-2xl w-full ${SIZE_CLASS[size]} max-h-[90vh] overflow-y-auto`}
       >
         <div className="flex items-start justify-between p-6 border-b border-gray-100">
           <div>
@@ -88,7 +99,8 @@ export default function Modal({ open, title, description, onClose, children }: M
         </div>
         <div className="p-6">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 

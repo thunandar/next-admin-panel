@@ -14,15 +14,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, message: 'Invalid request body' }, { status: 400 })
   }
 
-  const { email, password } = body as Record<string, unknown>
+  const { email, password, twoFactorToken } = body as Record<string, unknown>
   if (typeof email !== 'string' || !email || typeof password !== 'string' || !password) {
     return NextResponse.json({ success: false, message: 'Email and password are required' }, { status: 400 })
+  }
+
+  const payload: Record<string, string> = { email, password }
+  if (typeof twoFactorToken === 'string' && twoFactorToken) {
+    payload.twoFactorToken = twoFactorToken
   }
 
   const backendRes = await fetch(`${process.env.API_URL}/api/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify(payload),
   })
 
   const data = await backendRes.json()

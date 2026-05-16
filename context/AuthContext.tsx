@@ -2,16 +2,16 @@
 
 import { createContext, useContext, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import axios from 'axios'
 import { authApi, tokenStore } from '@/lib/api'
-import type { User, RegisterData } from '@/types'
+import { ROUTES, isAdminRole } from '@/lib/constants'
+import type { User } from '@/types'
 
 interface AuthContextValue {
   user: User | null
   isLoading: boolean
-  login: (email: string, password: string) => Promise<void>
-  register: (data: RegisterData) => Promise<void>
+  login: (email: string, password: string, twoFactorToken?: string) => Promise<void>
   logout: () => Promise<void>
+  refreshUser: (next?: User) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -22,35 +22,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter()
 
   useEffect(() => {
-    // Attempt a silent token refresh on every page load using the HttpOnly
-    // refresh_token cookie. This avoids storing the access token in localStorage.
-    axios
-      .post('/api/auth/refresh')
-      .then((res) => {
-        tokenStore.set(res.data.data.accessToken)
-        return authApi.getMe()
-      })
+    // The access token is rehydrated from the cookie by lib/api on first
+    // import. If there's a token, fetch the user; the axios interceptor will
+    // silently refresh once if it has expired. Skipping the eager refresh
+    // matters because the backend rotates refresh tokens per use, so calling
+    // refresh on every mount would burn the token saved by Playwright's
+    // storageState and break subsequent tests.
+    if (!tokenStore.getAccess()) {
+      setIsLoading(false)
+      return
+    }
+    authApi
+      .getMe()
       .then(({ user }) => setUser(user))
       .catch(() => tokenStore.clear())
       .finally(() => setIsLoading(false))
   }, [])
 
-  const login = async (email: string, password: string) => {
-    const { user, tokens } = await authApi.login(email, password)
-    if (!['admin', 'super_admin'].includes(user.role))
+  const login = async (email: string, password: string, twoFactorToken?: string) => {
+    const { user, tokens } = await authApi.login(email, password, twoFactorToken)
+    if (!isAdminRole(user.role))
       throw new Error('Access denied. This portal is for administrators only.')
     tokenStore.set(tokens.accessToken)
     setUser(user)
-    router.push('/admin/dashboard')
+    router.push(ROUTES.dashboard)
   }
 
-  const register = async (data: RegisterData) => {
-    const { user, tokens } = await authApi.register(data)
-    if (!['admin', 'super_admin'].includes(user.role))
-      throw new Error('Access denied. This portal is for administrators only.')
-    tokenStore.set(tokens.accessToken)
-    setUser(user)
-    router.push('/admin/dashboard')
+  const refreshUser = async (next?: User) => {
+    if (next) {
+      setUser(next)
+      return
+    }
+    const { user: fresh } = await authApi.getMe()
+    setUser(fresh)
   }
 
   const logout = async () => {
@@ -61,12 +65,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } finally {
       tokenStore.clear()
       setUser(null)
-      router.push('/login')
+      router.push(ROUTES.login)
     }
   }
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, login, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   )

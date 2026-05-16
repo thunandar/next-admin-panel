@@ -1,26 +1,25 @@
 import type { Metadata } from 'next'
-import { Geist } from 'next/font/google'
+import { GeistSans } from 'geist/font/sans'
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider } from '@/context/AuthContext'
 import { ThemeProvider } from '@/context/ThemeContext'
+import '@fontsource/instrument-serif/400.css'
+import '@fontsource/instrument-serif/400-italic.css'
 import './globals.css'
 
-const geist = Geist({ subsets: ['latin'], variable: '--font-geist' })
-
 export const metadata: Metadata = {
-  title: { default: 'ProductHub Admin', template: '%s | ProductHub Admin' },
+  title: { default: 'Nexus Admin', template: '%s | Nexus Admin' },
   description: 'Product management dashboard',
   icons: { icon: '/icon.svg' },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={geist.variable} suppressHydrationWarning>
+    <html lang="en" className={GeistSans.variable} suppressHydrationWarning>
       <head>
-        {/* Prevent flash of wrong theme on load */}
         <script dangerouslySetInnerHTML={{ __html: `try{const t=localStorage.getItem('admin-theme');if(t==='dark')document.documentElement.classList.add('dark')}catch{}` }} />
       </head>
-      <body className="font-[--font-geist] antialiased">
+      <body className="antialiased">
         <ThemeProvider>
           <AuthProvider>
             {children}
@@ -28,7 +27,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               position="top-right"
               toastOptions={{
                 duration: 3500,
-                style: { borderRadius: '10px', fontSize: '14px' },
+                style: {
+                  background: 'var(--bg-elev)',
+                  color: 'var(--ink)',
+                  border: '1px solid var(--line)',
+                  borderRadius: '10px',
+                  fontSize: '14px',
+                },
               }}
             />
           </AuthProvider>

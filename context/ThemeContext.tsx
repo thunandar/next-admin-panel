@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useContext, useEffect, useState } from 'react'
+import { THEME_STORAGE_KEY } from '@/lib/constants'
 
 type Theme = 'light' | 'dark'
 
@@ -15,7 +16,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<Theme>('light')
 
   useEffect(() => {
-    const saved = (localStorage.getItem('admin-theme') as Theme) || 'light'
+    const saved = (localStorage.getItem(THEME_STORAGE_KEY) as Theme) || 'light'
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- hydrating theme from localStorage on mount
     setTheme(saved)
     document.documentElement.classList.toggle('dark', saved === 'dark')
   }, [])
@@ -23,7 +25,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const toggleTheme = () => {
     setTheme(prev => {
       const next = prev === 'light' ? 'dark' : 'light'
-      localStorage.setItem('admin-theme', next)
+      localStorage.setItem(THEME_STORAGE_KEY, next)
       document.documentElement.classList.toggle('dark', next === 'dark')
       return next
     })

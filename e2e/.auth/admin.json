@@ -2,32 +2,36 @@
   "cookies": [
     {
       "name": "refresh_token",
-      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEsImlhdCI6MTc3Mjg5ODg0NywiZXhwIjoxNzc1NDkwODQ3fQ.wr92ylL9WgJMzqwqovjDjvsMj_U2ZluF2XuzeErmnYE",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEsImlhdCI6MTc3ODkwNzA4NywiZXhwIjoxNzgxNDk5MDg3fQ.cEeVWPXODh6vDY2kVQeUVePo8gQFw6MUuUoYVQiyIbE",
       "domain": "localhost",
       "path": "/",
-      "expires": 1775490847.73227,
+      "expires": 1781499087.336238,
       "httpOnly": true,
       "secure": false,
       "sameSite": "Lax"
     },
     {
       "name": "admin_access_token",
-      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEsInJvbGUiOiJzdXBlcl9hZG1pbiIsImlhdCI6MTc3Mjg5ODg0NywiZXhwIjoxNzczNTAzNjQ3fQ.2qMyG4apJgwxCVn_w35TJzW9hM0y2WKtrIe3yggNi0g",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEsInJvbGUiOiJzdXBlcl9hZG1pbiIsImlhdCI6MTc3ODkwNzA4NywiZXhwIjoxNzc4OTA3OTg3fQ.3HjRUUsXke5-Q37FPT_OmSrZEoM5IuFATFBlLLvVfiY",
       "domain": "localhost",
       "path": "/",
-      "expires": 1775490847.735657,
+      "expires": 1781499087.336956,
       "httpOnly": false,
       "secure": false,
-      "sameSite": "Lax"
+      "sameSite": "Strict"
     }
   ],
   "origins": [
     {
-      "origin": "http://localhost:3001",
+      "origin": "http://localhost:3002",
       "localStorage": [
         {
-          "name": "admin_access_token",
-          "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEsInJvbGUiOiJzdXBlcl9hZG1pbiIsImlhdCI6MTc3Mjg5ODg0NywiZXhwIjoxNzczNTAzNjQ3fQ.2qMyG4apJgwxCVn_w35TJzW9hM0y2WKtrIe3yggNi0g"
+          "name": "nexus-dashboard-layout-v2",
+          "value": "[\"revenue\",\"orders\",\"visitors\",\"conversion\",\"revenue-chart\",\"top-products\",\"recent-orders\",\"activity\"]"
+        },
+        {
+          "name": "nexus.sidebarCollapsed",
+          "value": "0"
         }
       ]
     }

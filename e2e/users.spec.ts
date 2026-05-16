@@ -37,12 +37,25 @@ test('can open edit modal for a user', async ({ page }) => {
   }
 })
 
-test('add user button visible for super_admin', async ({ page }) => {
-  // super_admin sees the Add User button
-  const addBtn = page.getByRole('button', { name: /add user/i })
-  if (await addBtn.isVisible()) {
-    await addBtn.click()
-    await expect(page.getByText('Add User')).toBeVisible()
-    await page.getByRole('button', { name: /cancel/i }).click()
-  }
+test('create a new admin from the invite modal', async ({ page }) => {
+  // Only super_admin sees the "Add admin" trigger
+  const trigger = page.getByRole('button', { name: /add admin/i })
+  if (!(await trigger.isVisible())) test.skip()
+
+  await trigger.click()
+  const dialog = page.getByRole('dialog')
+  await expect(dialog).toBeVisible()
+
+  const email = `e2e-admin-${Date.now()}@example.com`
+  await dialog.getByPlaceholder(/alex rivera/i).fill('E2E Admin')
+  await dialog.getByPlaceholder(/alex@nexus\.shop/i).fill(email)
+  await dialog.getByPlaceholder(/min\. 8 characters/i).fill('password123')
+
+  await dialog.getByRole('button', { name: /add admin/i }).click()
+
+  // Modal closes on success; verify the new admin appears in the table
+  await expect(dialog).toBeHidden({ timeout: 10_000 })
+  await page.getByPlaceholder(/search/i).fill(email)
+  await page.getByRole('button', { name: /search/i }).click()
+  await expect(page.getByText(email)).toBeVisible({ timeout: 10_000 })
 })
