@@ -3,9 +3,23 @@ export interface User {
   email: string
   name: string
   role: 'super_admin' | 'admin' | 'user'
+  status?: 'active' | 'banned'
+  lifetimeSpend?: string | number
+  avatarUrl?: string | null
+  displayName?: string | null
+  timezone?: string | null
+  twoFactorEnabled?: boolean
+  loginAlerts?: boolean
+  notifyNewOrders?: NotificationChannel
+  notifyLowStock?: NotificationChannel
+  notifyDailySummary?: NotificationChannel
+  notifyRefundRequests?: NotificationChannel
+  addresses?: Address[]
   createdAt: string
   updatedAt: string
 }
+
+export type NotificationChannel = 'off' | 'email' | 'push' | 'email+push'
 
 export interface ProductImage {
   id: number
@@ -16,14 +30,67 @@ export interface ProductImage {
   sortOrder: number
 }
 
+export interface ProductVariant {
+  id: number
+  productId: number
+  name: string
+  sku?: string | null
+  size?: string | null
+  color?: string | null
+  colorHex?: string | null
+  priceOverride?: string | null
+  stock: number
+  sortOrder: number
+}
+
+export interface Category {
+  id: number
+  name: string
+  slug: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface Vendor {
+  id: number
+  name: string
+  slug: string
+  logoUrl: string | null
+  description: string | null
+  websiteUrl: string | null
+  status: 'active' | 'inactive'
+  createdAt?: string
+  updatedAt?: string
+}
+
 export interface Product {
   id: number
   name: string
   description: string | null
-  price: string | number
+  price: number
   stock: number
+  categoryId: number | null
+  // Virtual field surfaced from the Category relation — Category.name, or null.
   category: string | null
+  Category?: Category | null
   ProductImages: ProductImage[]
+  // Nexus extensions
+  tags?: string[]
+  vendorId?: number | null
+  // Virtual field surfaced from the Vendor relation — Vendor.name, or null.
+  vendor?: string | null
+  Vendor?: Pick<Vendor, 'id' | 'name' | 'slug' | 'logoUrl'> | null
+  salesCount?: number
+  status?: 'active' | 'draft' | 'out' | 'archived'
+  isFeatured?: boolean
+  featuredOrder?: number
+  compareAtPrice?: string | number | null
+  costPerItem?: string | number | null
+  slug?: string | null
+  metaTitle?: string | null
+  trackInventory?: boolean
+  continueSelling?: boolean
+  variants?: ProductVariant[]
   createdAt: string
   updatedAt: string
 }
@@ -63,11 +130,18 @@ export interface ProductFilters {
   page?: number
   limit?: number
   category?: string
+  categoryId?: number | string
   minPrice?: number
   maxPrice?: number
-  inStock?: boolean
+  inStock?: boolean | string
   sortBy?: string
   sortOrder?: 'ASC' | 'DESC'
+  status?: string
+  tags?: string
+  vendor?: string
+  vendorId?: number | string
+  search?: string
+  isFeatured?: 'true' | 'false'
 }
 
 export interface CreateProductData {
@@ -75,7 +149,7 @@ export interface CreateProductData {
   description?: string
   price: number
   stock: number
-  category?: string
+  categoryId?: number | null
 }
 
 export type UpdateProductData = Partial<CreateProductData>
@@ -90,7 +164,7 @@ export interface RegisterData {
 export interface UserFilters {
   page?: number
   limit?: number
-  role?: 'super_admin' | 'admin' | 'user'
+  role?: 'super_admin' | 'admin' | 'user' | string
   search?: string
 }
 
@@ -110,19 +184,39 @@ export interface OrderItem {
   orderId: number
   productId: number
   quantity: number
-  price: string | number
+  price: number
   product?: Product
+}
+
+export interface Address {
+  id: number
+  userId: number
+  name: string
+  line1: string
+  line2: string | null
+  city: string
+  region: string | null
+  postal: string
+  country: string
+  phone: string | null
+  isDefault: boolean
+  createdAt: string
+  updatedAt: string
 }
 
 export interface Order {
   id: number
   userId: number
+  placedById: number | null
   status: 'pending' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled'
-  totalAmount: string | number
+  totalAmount: number
   shippingAddress: string | null
+  shippingAddressId: number | null
+  address?: Address | null
   notes: string | null
   items: OrderItem[]
   user?: { id: number; name: string; email: string }
+  placedBy?: { id: number; name: string; email: string } | null
   createdAt: string
   updatedAt: string
 }
@@ -144,6 +238,7 @@ export interface CreateOrderData {
   items: { productId: number; quantity: number }[]
   shippingAddress?: string
   notes?: string
+  userId?: number
 }
 
 export interface AuditLog {

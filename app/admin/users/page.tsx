@@ -1,324 +1,439 @@
-'use client'
+'use client';
 
-import { useCallback, useEffect, useState } from 'react'
-import { Search, Trash2, Edit, Users as UsersIcon, Shield, UserCheck, UserPlus, Crown } from 'lucide-react'
-import toast from 'react-hot-toast'
-import axios from 'axios'
-import { usersApi } from '@/lib/api'
-import { useAuth } from '@/context/AuthContext'
-import { formatDate } from '@/lib/utils'
-import Badge from '@/components/ui/Badge'
-import Button from '@/components/ui/Button'
-import Pagination from '@/components/ui/Pagination'
-import { ConfirmModal } from '@/components/ui/Modal'
-import Modal from '@/components/ui/Modal'
-import Input from '@/components/ui/Input'
-import { PageLoader } from '@/components/ui/Spinner'
-import type { Pagination as PaginationType, User } from '@/types'
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import toast from 'react-hot-toast';
+import { usersApi } from '@/lib/api';
+import { useAuth } from '@/context/AuthContext';
+import { formatCurrency } from '@/lib/utils';
+import { buildCsv, downloadCsv } from '@/lib/csv';
+import Badge from '@/components/ui/Badge';
+import Button, { IconBtn } from '@/components/ui/Button';
+import Card from '@/components/ui/Card';
+import SectionHead from '@/components/ui/SectionHead';
+import Tabs from '@/components/ui/Tabs';
+import Input from '@/components/ui/Input';
+import Avatar from '@/components/ui/Avatar';
+import Modal from '@/components/ui/Modal';
+import Field from '@/components/ui/Field';
+import { I } from '@/components/ui/Icons';
+import UserDetailModal from '@/components/admin/UserDetailModal';
+import type { Pagination as PaginationType, User } from '@/types';
 
-function RoleBadge({ role }: { role: User['role'] }) {
-  if (role === 'super_admin') return (
-    <div className="flex items-center gap-1.5">
-      <Crown size={14} className="text-amber-500" />
-      <Badge variant="yellow" className="capitalize">Super Admin</Badge>
-    </div>
-  )
-  if (role === 'admin') return (
-    <div className="flex items-center gap-1.5">
-      <Shield size={14} className="text-purple-500" />
-      <Badge variant="purple" className="capitalize">Admin</Badge>
-    </div>
-  )
-  return (
-    <div className="flex items-center gap-1.5">
-      <UserCheck size={14} className="text-blue-500" />
-      <Badge variant="blue" className="capitalize">User</Badge>
-    </div>
-  )
+type Tab = 'all' | 'customers' | 'staff' | 'banned';
+type StatusFilter = '' | 'active' | 'banned';
+
+interface AdvancedFilters {
+  status: StatusFilter;
+  joinedAfter: string;
+}
+
+const EMPTY_FILTERS: AdvancedFilters = { status: '', joinedAfter: '' };
+
+const ROLE_LABEL: Record<User['role'], string> = {
+  super_admin: 'Admin · Owner',
+  admin: 'Admin · Support',
+  user: 'Customer',
+};
+
+const STATUS_TONE: Record<NonNullable<User['status']>, 'success' | 'danger'> = {
+  active: 'success',
+  banned: 'danger',
+};
+
+const TH_STYLE: React.CSSProperties = {
+  textAlign: 'left',
+  padding: '10px 16px',
+  fontSize: 11.5,
+  fontWeight: 500,
+  color: 'var(--ink-3)',
+  textTransform: 'uppercase',
+  letterSpacing: 0.04,
+};
+
+const SELECT_STYLE: React.CSSProperties = {
+  height: 38,
+  width: '100%',
+  padding: '0 12px',
+  borderRadius: 10,
+  border: '1px solid var(--line-2)',
+  background: 'var(--bg-elev)',
+  color: 'var(--ink)',
+  fontSize: 14,
+};
+
+function usersToCsv(users: User[]): string {
+  const header = ['User ID', 'Name', 'Email', 'Role', 'Status', 'Lifetime Spend', 'Joined'];
+  const rows = users.map((u) => [
+    `U-${String(u.id).padStart(4, '0')}`,
+    u.name,
+    u.email,
+    ROLE_LABEL[u.role],
+    u.status ?? 'active',
+    Number(u.lifetimeSpend ?? 0).toFixed(2),
+    new Date(u.createdAt).toISOString(),
+  ]);
+  return buildCsv(header, rows);
 }
 
 export default function UsersPage() {
-  const { user: currentUser } = useAuth()
-  const isSuperAdmin = currentUser?.role === 'super_admin'
+  const { user: currentUser } = useAuth();
+  const isSuperAdmin = currentUser?.role === 'super_admin';
 
-  const [users, setUsers] = useState<User[]>([])
-  const [pagination, setPagination] = useState<PaginationType | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [page, setPage] = useState(1)
-  const [search, setSearch] = useState('')
-  const [searchInput, setSearchInput] = useState('')
-  const [roleFilter, setRoleFilter] = useState('')
-  const [deleteTarget, setDeleteTarget] = useState<User | null>(null)
-  const [deleting, setDeleting] = useState(false)
-  const [editTarget, setEditTarget] = useState<User | null>(null)
-  const [editForm, setEditForm] = useState({ name: '', email: '', role: '' })
-  const [saving, setSaving] = useState(false)
-  const [showCreate, setShowCreate] = useState(false)
-  const [createForm, setCreateForm] = useState({ name: '', email: '', password: '', role: 'user' })
-  const [creating, setCreating] = useState(false)
+  const [users, setUsers] = useState<User[]>([]);
+  const [pagination, setPagination] = useState<PaginationType | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [tab, setTab] = useState<Tab>('all');
+  const [search, setSearch] = useState('');
+  const [advanced, setAdvanced] = useState<AdvancedFilters>(EMPTY_FILTERS);
 
-  const fetchUsers = useCallback(async () => {
-    setLoading(true)
+  const [exporting, setExporting] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteBusy, setInviteBusy] = useState(false);
+  const [invite, setInvite] = useState({ name: '', email: '', password: '', role: 'admin' as 'admin' | 'super_admin' });
+  const [detailUser, setDetailUser] = useState<User | null>(null);
+
+  const advancedCount = useMemo(
+    () => Object.values(advanced).filter((v) => v !== '').length,
+    [advanced],
+  );
+
+  const buildApiFilters = useCallback(
+    (targetPage: number, limit: number) => {
+      const role = tab === 'customers' ? 'user' : tab === 'staff' ? 'admin,super_admin' : undefined;
+      return {
+        page: targetPage,
+        limit,
+        ...(role ? { role } : {}),
+        ...(search ? { search } : {}),
+      };
+    },
+    [tab, search],
+  );
+
+  const applyClientFilters = useCallback(
+    (list: User[]) => {
+      return list.filter((u) => {
+        if (tab === 'banned' && u.status !== 'banned') return false;
+        if (advanced.status && (u.status ?? 'active') !== advanced.status) return false;
+        if (advanced.joinedAfter) {
+          const joined = new Date(u.createdAt).getTime();
+          const cutoff = new Date(advanced.joinedAfter).getTime();
+          if (Number.isFinite(cutoff) && joined < cutoff) return false;
+        }
+        return true;
+      });
+    },
+    [tab, advanced.status, advanced.joinedAfter],
+  );
+
+  const fetch = useCallback(async () => {
+    setLoading(true);
     try {
-      const res = await usersApi.getAll({
-        page,
-        limit: 10,
-        search: search || undefined,
-        role: roleFilter as User['role'] | undefined || undefined,
-      })
-      setUsers(res.data)
-      setPagination(res.pagination)
+      const res = await usersApi.getAll(buildApiFilters(page, 10));
+      setUsers(applyClientFilters(res.data));
+      setPagination(res.pagination);
     } catch {
-      toast.error('Failed to load users')
+      toast.error('Failed to load users');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [page, search, roleFilter])
+  }, [page, buildApiFilters, applyClientFilters]);
 
-  useEffect(() => { fetchUsers() }, [fetchUsers])
+  useEffect(() => {
+    fetch();
+  }, [fetch]);
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault()
-    setSearch(searchInput)
-    setPage(1)
-  }
-
-  const handleCreate = async () => {
-    setCreating(true)
+  async function handleExport() {
+    if (exporting) return;
+    setExporting(true);
+    const toastId = toast.loading('Preparing user export…');
     try {
-      await usersApi.create({
-        name: createForm.name,
-        email: createForm.email,
-        password: createForm.password,
-        role: createForm.role as User['role'],
-      })
-      toast.success('User created')
-      setShowCreate(false)
-      setCreateForm({ name: '', email: '', password: '', role: 'user' })
-      fetchUsers()
-    } catch (err) {
-      toast.error(axios.isAxiosError(err) ? err.response?.data?.message ?? 'Failed to create user' : 'Failed to create user')
-    } finally {
-      setCreating(false)
-    }
-  }
+      const pageSize = 100;
+      const all: User[] = [];
+      let current = 1;
+      let totalPages = 1;
+      do {
+        // eslint-disable-next-line no-await-in-loop -- paginated fetch, sequential by design
+        const res = await usersApi.getAll(buildApiFilters(current, pageSize));
+        all.push(...res.data);
+        totalPages = res.pagination.totalPages || 1;
+        current += 1;
+      } while (current <= totalPages);
 
-  const openEdit = (user: User) => {
-    setEditTarget(user)
-    setEditForm({ name: user.name, email: user.email, role: user.role })
-  }
+      const filtered = applyClientFilters(all);
+      if (filtered.length === 0) {
+        toast.error('No users match the current filters', { id: toastId });
+        return;
+      }
 
-  const handleSave = async () => {
-    if (!editTarget) return
-    setSaving(true)
-    try {
-      await usersApi.update(editTarget.id, {
-        name: editForm.name,
-        email: editForm.email,
-        role: editForm.role as User['role'],
-      })
-      toast.success('User updated')
-      setEditTarget(null)
-      fetchUsers()
-    } catch (err) {
-      toast.error(axios.isAxiosError(err) ? err.response?.data?.message ?? 'Failed to update user' : 'Failed to update user')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const handleDelete = async () => {
-    if (!deleteTarget) return
-    setDeleting(true)
-    try {
-      await usersApi.delete(deleteTarget.id)
-      toast.success('User deleted')
-      setDeleteTarget(null)
-      fetchUsers()
+      const date = new Date().toISOString().slice(0, 10);
+      downloadCsv(`users-${tab}-${date}.csv`, usersToCsv(filtered));
+      toast.success(`Exported ${filtered.length} ${filtered.length === 1 ? 'user' : 'users'}`, { id: toastId });
     } catch {
-      toast.error('Failed to delete user')
+      toast.error('Export failed', { id: toastId });
     } finally {
-      setDeleting(false)
+      setExporting(false);
+    }
+  }
+
+  function updateFilter<K extends keyof AdvancedFilters>(key: K, value: AdvancedFilters[K]) {
+    setAdvanced((prev) => ({ ...prev, [key]: value }));
+    setPage(1);
+  }
+
+  function clearFilters() {
+    setAdvanced(EMPTY_FILTERS);
+    setPage(1);
+  }
+
+  function openInvite() {
+    setInvite({ name: '', email: '', password: '', role: 'admin' });
+    setInviteOpen(true);
+  }
+
+  async function submitInvite() {
+    const name = invite.name.trim();
+    const email = invite.email.trim();
+    const password = invite.password;
+    if (!name || !email) {
+      toast.error('Name and email are required');
+      return;
+    }
+    if (password.length < 8) {
+      toast.error('Temporary password must be at least 8 characters');
+      return;
+    }
+    setInviteBusy(true);
+    try {
+      await usersApi.create({ name, email, password, role: invite.role });
+      toast.success(`Admin added: ${email}`);
+      setInviteOpen(false);
+      fetch();
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { message?: string } } };
+      toast.error(axiosErr.response?.data?.message ?? 'Failed to add admin');
+    } finally {
+      setInviteBusy(false);
     }
   }
 
   return (
-    <div className="space-y-4">
-      {/* Toolbar */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <form onSubmit={handleSearch} className="flex gap-2 flex-1">
-          <div className="relative flex-1">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="Search by name or email..."
-              className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 dark:border-[#38444d] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-[#253341] dark:text-white dark:placeholder-[#8b98a5]"
-            />
-          </div>
-          <Button type="submit" variant="secondary" size="sm">Search</Button>
-          {search && (
-            <Button type="button" variant="ghost" size="sm" onClick={() => { setSearch(''); setSearchInput(''); setPage(1) }}>
-              Clear
+    <div style={{ padding: '28px 32px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <SectionHead
+        title="Users"
+        sub={`${pagination?.totalItems ?? users.length} members.`}
+        right={
+          <>
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<I.download />}
+              onClick={handleExport}
+              disabled={exporting || loading}
+            >
+              {exporting ? 'Exporting…' : 'Export'}
             </Button>
-          )}
-        </form>
+            {isSuperAdmin && (
+              <Button variant="primary" size="sm" icon={<I.plus />} onClick={openInvite}>
+                Add admin
+              </Button>
+            )}
+          </>
+        }
+      />
 
-        <div className="flex gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
+        <Tabs<Tab>
+          tabs={[
+            { value: 'all', label: 'All', count: pagination?.totalItems },
+            { value: 'customers', label: 'Customers' },
+            { value: 'staff', label: 'Staff' },
+            { value: 'banned', label: 'Banned' },
+          ]}
+          value={tab}
+          onChange={(v) => {
+            setTab(v);
+            setPage(1);
+          }}
+        />
+        <div className="flex items-center gap-2 flex-wrap ml-auto">
+          <Input
+            inputSize="sm"
+            icon={<I.search />}
+            placeholder="Name, email"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            full={false}
+          />
           <select
-            value={roleFilter}
-            onChange={(e) => { setRoleFilter(e.target.value); setPage(1) }}
-            className="px-3 py-2 text-sm border border-gray-300 dark:border-[#38444d] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-[#253341] dark:text-white"
+            style={{ ...SELECT_STYLE, width: 'auto', height: 34, fontSize: 13 }}
+            value={advanced.status}
+            onChange={(e) => updateFilter('status', e.target.value as StatusFilter)}
+            aria-label="Status"
           >
-            <option value="">All roles</option>
-            <option value="super_admin">Super Admin</option>
-            <option value="admin">Admin</option>
-            <option value="user">User</option>
+            <option value="">Any status</option>
+            <option value="active">Active</option>
+            <option value="banned">Banned</option>
           </select>
-          {isSuperAdmin && (
-            <Button size="sm" onClick={() => setShowCreate(true)}>
-              <UserPlus size={16} />
-              Add User
+          <Input
+            inputSize="sm"
+            type="date"
+            value={advanced.joinedAfter}
+            onChange={(e) => updateFilter('joinedAfter', e.target.value)}
+            aria-label="Joined after"
+            full={false}
+          />
+          {advancedCount > 0 && (
+            <Button variant="ghost" size="sm" onClick={clearFilters}>
+              Clear filters
             </Button>
           )}
         </div>
       </div>
 
-      {/* Table */}
-      <div className="bg-white dark:bg-[#1e2732] rounded-xl shadow-sm border border-gray-100 dark:border-[#38444d] overflow-hidden">
-        {loading ? (
-          <PageLoader />
-        ) : users.length === 0 ? (
-          <div className="text-center py-16 text-gray-400">
-            <UsersIcon size={40} className="mx-auto mb-3 opacity-40" />
-            <p className="font-medium">No users found</p>
-          </div>
-        ) : (
-          <>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="bg-gray-50 dark:bg-[#253341] border-b border-gray-100 dark:border-[#38444d]">
-                    <th className="text-left text-xs font-semibold text-gray-500 dark:text-[#8b98a5] uppercase tracking-wider px-6 py-3">User</th>
-                    <th className="text-left text-xs font-semibold text-gray-500 dark:text-[#8b98a5] uppercase tracking-wider px-6 py-3">Role</th>
-                    <th className="text-left text-xs font-semibold text-gray-500 dark:text-[#8b98a5] uppercase tracking-wider px-6 py-3">Joined</th>
-                    <th className="px-6 py-3" />
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50 dark:divide-[#253341]">
-                  {users.map((u) => (
-                    <tr key={u.id} className="hover:bg-gray-50 dark:hover:bg-[#253341] transition-colors">
-                      <td className="px-6 py-4">
+      <Card padding={0}>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <thead>
+              <tr style={{ background: 'var(--bg-muted)' }}>
+                {['User', 'Role', 'Joined', 'Lifetime', 'Status', ''].map((h) => (
+                  <th key={h} style={TH_STYLE}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={6} style={{ padding: 32, textAlign: 'center', color: 'var(--ink-4)' }}>
+                    Loading…
+                  </td>
+                </tr>
+              ) : users.length === 0 ? (
+                <tr>
+                  <td colSpan={6} style={{ padding: 32, textAlign: 'center', color: 'var(--ink-4)' }}>
+                    No users.
+                  </td>
+                </tr>
+              ) : (
+                users.map((u) => {
+                  const status = u.status ?? 'active';
+                  const roleLabel = ROLE_LABEL[u.role];
+                  return (
+                    <tr key={u.id} style={{ borderBottom: '1px solid var(--line)' }}>
+                      <td style={{ padding: '14px 16px' }}>
                         <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-semibold shrink-0">
-                            {u.name.charAt(0).toUpperCase()}
-                          </div>
+                          <Avatar name={u.name} size={32} />
                           <div>
-                            <p className="font-medium text-gray-900 dark:text-white flex items-center gap-2">
-                              {u.name}
-                              {u.id === currentUser?.id && (
-                                <Badge variant="blue">You</Badge>
-                              )}
-                            </p>
-                            <p className="text-xs text-gray-500 dark:text-[#8b98a5]">{u.email}</p>
+                            <div style={{ color: 'var(--ink)', fontWeight: 500 }}>{u.name}</div>
+                            <div style={{ fontSize: 11.5, color: 'var(--ink-3)' }}>
+                              {u.email} · U-{String(u.id).padStart(4, '0')}
+                            </div>
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
-                        <RoleBadge role={u.role} />
+                      <td style={{ padding: '14px 16px', color: 'var(--ink-2)' }}>
+                        {u.role !== 'user' ? (
+                          <Badge tone="accent" dot size="sm">{roleLabel}</Badge>
+                        ) : (
+                          <span style={{ color: 'var(--ink-3)' }}>{roleLabel}</span>
+                        )}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-500 dark:text-[#8b98a5]">{formatDate(u.createdAt)}</td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-1 justify-end">
-                          <button
-                            onClick={() => openEdit(u)}
-                            className="p-1.5 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors"
-                          >
-                            <Edit size={15} />
-                          </button>
-                          {isSuperAdmin && u.id !== currentUser?.id && (
-                            <button
-                              onClick={() => setDeleteTarget(u)}
-                              className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
-                            >
-                              <Trash2 size={15} />
-                            </button>
-                          )}
-                        </div>
+                      <td style={{ padding: '14px 16px', color: 'var(--ink-3)' }}>
+                        {new Date(u.createdAt).toLocaleDateString(undefined, {
+                          month: 'short',
+                          year: 'numeric',
+                        })}
+                      </td>
+                      <td
+                        style={{
+                          padding: '14px 16px',
+                          fontVariantNumeric: 'tabular-nums',
+                          color: 'var(--ink)',
+                        }}
+                      >
+                        {formatCurrency(u.lifetimeSpend ?? 0)}
+                      </td>
+                      <td style={{ padding: '14px 16px' }}>
+                        <Badge tone={STATUS_TONE[status]} dot size="sm">
+                          {status.charAt(0).toUpperCase() + status.slice(1)}
+                        </Badge>
+                      </td>
+                      <td style={{ padding: '14px 16px', textAlign: 'right' }}>
+                        <IconBtn
+                          icon={<I.chev_r />}
+                          variant="ghost"
+                          size={28}
+                          aria-label={`View ${u.name}`}
+                          onClick={() => setDetailUser(u)}
+                        />
                       </td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {pagination && <Pagination pagination={pagination} onPageChange={setPage} />}
-          </>
-        )}
-      </div>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
 
-      {/* Create Modal — super_admin only */}
-      {isSuperAdmin && (
-        <Modal open={showCreate} title="Add User" onClose={() => setShowCreate(false)}>
-          <div className="space-y-4">
-            <Input label="Name" value={createForm.name} onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })} placeholder="Full name" />
-            <Input label="Email" type="email" value={createForm.email} onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })} placeholder="email@example.com" />
-            <Input label="Password" type="password" value={createForm.password} onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })} placeholder="Min 6 characters" />
-            <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium text-gray-700 dark:text-[#8b98a5]">Role</label>
-              <select
-                value={createForm.role}
-                onChange={(e) => setCreateForm({ ...createForm, role: e.target.value })}
-                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-[#38444d] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-[#253341] dark:text-white"
-              >
-                <option value="user">User</option>
-                <option value="admin">Admin</option>
-                <option value="super_admin">Super Admin</option>
-              </select>
-            </div>
-            <div className="flex justify-end gap-3 pt-2">
-              <Button variant="secondary" onClick={() => setShowCreate(false)} disabled={creating}>Cancel</Button>
-              <Button onClick={handleCreate} loading={creating}>Create User</Button>
-            </div>
-          </div>
-        </Modal>
-      )}
-
-      {/* Edit Modal */}
-      <Modal open={!!editTarget} title="Edit User" onClose={() => setEditTarget(null)}>
-        <div className="space-y-4">
-          <Input label="Name" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} />
-          <Input label="Email" type="email" value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} />
-          <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-gray-700 dark:text-[#8b98a5]">Role</label>
+      <Modal
+        open={inviteOpen}
+        title="Add admin"
+        description="Create an admin account with a temporary password. They can change it on first login."
+        onClose={() => !inviteBusy && setInviteOpen(false)}
+      >
+        <div className="flex flex-col gap-4">
+          <Field label="Full name" required>
+            <Input
+              value={invite.name}
+              onChange={(e) => setInvite({ ...invite, name: e.target.value })}
+              placeholder="Alex Rivera"
+              autoFocus
+            />
+          </Field>
+          <Field label="Email" required>
+            <Input
+              type="email"
+              value={invite.email}
+              onChange={(e) => setInvite({ ...invite, email: e.target.value })}
+              placeholder="alex@nexus.shop"
+            />
+          </Field>
+          <Field label="Temporary password" required hint="At least 8 characters. Share securely.">
+            <Input
+              type="text"
+              value={invite.password}
+              onChange={(e) => setInvite({ ...invite, password: e.target.value })}
+              placeholder="min. 8 characters"
+            />
+          </Field>
+          <Field label="Role">
             <select
-              value={editForm.role}
-              onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
-              disabled={!isSuperAdmin}
-              className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-[#38444d] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-[#253341] dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+              style={SELECT_STYLE}
+              value={invite.role}
+              onChange={(e) => setInvite({ ...invite, role: e.target.value as 'admin' | 'super_admin' })}
             >
-              <option value="user">User</option>
-              <option value="admin">Admin</option>
-              {isSuperAdmin && <option value="super_admin">Super Admin</option>}
+              <option value="admin">Admin · Support</option>
+              <option value="super_admin">Admin · Owner</option>
             </select>
-            {!isSuperAdmin && (
-              <p className="text-xs text-gray-400 dark:text-[#8b98a5] mt-1">Only super admins can change roles.</p>
-            )}
-          </div>
-          <div className="flex justify-end gap-3 pt-2">
-            <Button variant="secondary" onClick={() => setEditTarget(null)} disabled={saving}>Cancel</Button>
-            <Button onClick={handleSave} loading={saving}>Save Changes</Button>
+          </Field>
+          <div className="flex justify-end gap-3 mt-2">
+            <Button variant="secondary" onClick={() => setInviteOpen(false)} disabled={inviteBusy}>Cancel</Button>
+            <Button variant="primary" onClick={submitInvite} loading={inviteBusy}>Add admin</Button>
           </div>
         </div>
       </Modal>
 
-      <ConfirmModal
-        open={!!deleteTarget}
-        title="Delete User"
-        message={`Are you sure you want to delete "${deleteTarget?.name}"?`}
-        loading={deleting}
-        onConfirm={handleDelete}
-        onClose={() => setDeleteTarget(null)}
+      <UserDetailModal
+        user={detailUser}
+        currentUserId={currentUser?.id}
+        isSuperAdmin={isSuperAdmin}
+        onClose={() => setDetailUser(null)}
+        onUpdated={(updated) => {
+          setUsers((prev) => prev.map((x) => (x.id === updated.id ? { ...x, ...updated } : x)));
+        }}
       />
     </div>
-  )
+  );
 }

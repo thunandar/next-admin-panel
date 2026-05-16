@@ -14,27 +14,30 @@ test('products page loads and shows table', async ({ page }) => {
 test('create a new product', async ({ page }) => {
   const productName = `Test Product ${Date.now()}`
 
-  // Navigate directly since Add Product is only visible to 'admin' role, not 'super_admin'
   await page.goto('/admin/products/new')
   await expect(page).toHaveURL(/products\/new/)
 
-  // Labels are plain text without htmlFor — use placeholders to target inputs
-  await page.getByPlaceholder(/premium wireless/i).fill(productName)
-  await page.getByPlaceholder('0.00').fill('29.99')
-  await page.getByPlaceholder('0').fill('50')
-  // Category is a select — leave as default (no category)
+  // Field labels have no htmlFor, so locate by placeholder / numeric order.
+  // The product name placeholder is "e.g. Linen Field Shirt" exactly — the
+  // meta title placeholder also contains it ("e.g. Linen Field Shirt — Nexus")
+  // so we need exact match.
+  await page.getByPlaceholder('e.g. Linen Field Shirt', { exact: true }).fill(productName)
+  const numericInputs = page.locator('input[type=number]')
+  await numericInputs.nth(0).fill('29.99') // Price
+  // Stock input is further down (after Compare-at, Cost per item).
+  await numericInputs.nth(3).fill('50')
 
-  await page.getByRole('button', { name: 'Create Product' }).click()
+  // Wait for categories/vendors fetch to settle so the form isn't mid-render
+  await page.waitForLoadState('networkidle')
+  await page.getByRole('button', { name: 'Publish' }).click()
 
-  // Should redirect back to products list
   await expect(page).toHaveURL(/\/admin\/products$/, { timeout: 10_000 })
 })
 
 test('can search products', async ({ page }) => {
+  // Search is real-time (no submit button) — the input controls state on change.
   const searchInput = page.getByPlaceholder(/search products/i)
   await searchInput.fill('test')
-  await page.getByRole('button', { name: /search/i }).click()
-  // Page updates (may show results or empty state)
   await page.waitForLoadState('networkidle')
   await expect(searchInput).toHaveValue('test')
 })
@@ -59,4 +62,54 @@ test('view product detail page', async ({ page }) => {
     await firstProductLink.click()
     await expect(page).toHaveURL(/products\/\d+/)
   }
+})
+
+test('edit a product', async ({ page }) => {
+  const original = `Edit Target ${Date.now()}`
+  await page.goto('/admin/products/new')
+  await page.getByPlaceholder('e.g. Linen Field Shirt', { exact: true }).fill(original)
+  const numericInputs = page.locator('input[type=number]')
+  await numericInputs.nth(0).fill('19.99')
+  await numericInputs.nth(3).fill('10')
+  await page.waitForLoadState('networkidle')
+  await page.getByRole('button', { name: 'Publish' }).click()
+  await expect(page).toHaveURL(/\/admin\/products$/, { timeout: 10_000 })
+
+  // Search is real-time; wait for the result row to appear before clicking it.
+  await page.getByPlaceholder(/search products/i).fill(original)
+  await page.waitForLoadState('networkidle')
+  await page.getByRole('link', { name: original }).first().click()
+  await expect(page).toHaveURL(/products\/\d+$/)
+  const productId = page.url().match(/products\/(\d+)/)?.[1]
+  expect(productId).toBeTruthy()
+
+  await page.goto(`/admin/products/${productId}/edit`)
+  const updated = `${original} (edited)`
+  await page.getByPlaceholder('e.g. Linen Field Shirt', { exact: true }).fill(updated)
+  await page.getByRole('button', { name: /save changes/i }).click()
+  await expect(page).toHaveURL(/\/admin\/products$/, { timeout: 10_000 })
+})
+
+test('delete a product', async ({ page }) => {
+  const name = `Delete Target ${Date.now()}`
+  await page.goto('/admin/products/new')
+  await page.getByPlaceholder('e.g. Linen Field Shirt', { exact: true }).fill(name)
+  const numericInputs = page.locator('input[type=number]')
+  await numericInputs.nth(0).fill('5.00')
+  await numericInputs.nth(3).fill('1')
+  await page.waitForLoadState('networkidle')
+  await page.getByRole('button', { name: 'Publish' }).click()
+  await expect(page).toHaveURL(/\/admin\/products$/, { timeout: 10_000 })
+
+  await page.getByPlaceholder(/search products/i).fill(name)
+  await page.waitForLoadState('networkidle')
+  // Wait until the search has actually narrowed to our product before clicking
+  // (the search is debounced and `networkidle` can race the request).
+  await page.getByRole('link', { name }).first().click()
+  await expect(page).toHaveURL(/products\/\d+$/)
+
+  // Open the confirm modal, then click Delete inside it.
+  await page.getByRole('button', { name: /^delete$/i }).click()
+  await page.getByRole('dialog').getByRole('button', { name: /delete/i }).click()
+  await expect(page).toHaveURL(/\/admin\/products$/, { timeout: 10_000 })
 })

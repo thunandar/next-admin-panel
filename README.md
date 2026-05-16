@@ -1,36 +1,69 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Next.js Admin Panel
 
-## Getting Started
+A full-featured admin dashboard for managing products, orders, users, and analytics. Built with Next.js 14, TypeScript, and Tailwind CSS.
 
-First, run the development server:
+## Features
+
+- JWT-based authentication with silent token refresh
+- Role-based access control (`admin`, `super_admin`)
+- Product management with image uploads
+- Order management with status updates
+- User management (super_admin only)
+- Audit logs
+- Analytics dashboard with charts
+- Dark mode support
+
+## Setup
+
+### 1. Install dependencies
+
+```bash
+npm install
+```
+
+### 2. Configure environment variables
+
+Copy `.env.example` to `.env.local` and fill in the values:
+
+```bash
+cp .env.example .env.local
+```
+
+| Variable | Description |
+|---|---|
+| `API_URL` | Backend URL used by Next.js server-side API routes (never exposed to the browser) |
+| `NEXT_PUBLIC_API_URL` | Backend URL used in the browser for image URLs and client-side calls |
+| `JWT_SECRET` | Must match the secret used by the backend to sign JWT tokens. Generate with `openssl rand -base64 64` |
+
+### 3. Start the development server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Auth flow
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Login → Next.js `/api/auth/login` → backend. Refresh token stored in an HttpOnly cookie; access token returned to client.
+2. Access token lives in memory only (not localStorage). A copy in a `SameSite=Strict` cookie lets the middleware check it server-side.
+3. On every page load, a silent `/api/auth/refresh` call re-hydrates the access token using the HttpOnly refresh cookie.
+4. On 401, the axios interceptor automatically refreshes and retries the failed request once.
 
-## Learn More
+## Running E2E tests
 
-To learn more about Next.js, take a look at the following resources:
+Set credentials before running (no hardcoded fallbacks):
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+ADMIN_EMAIL=admin@example.com ADMIN_PASSWORD=secret npx playwright test
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Tech Stack
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- [Next.js 14](https://nextjs.org/)
+- [TypeScript](https://www.typescriptlang.org/)
+- [Tailwind CSS](https://tailwindcss.com/)
+- [Axios](https://axios-http.com/)
+- [React Hook Form](https://react-hook-form.com/) + [Zod](https://zod.dev/)
+- [Recharts](https://recharts.org/)
+- [Playwright](https://playwright.dev/) (E2E tests)

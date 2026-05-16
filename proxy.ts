@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { jwtVerify, decodeJwt } from 'jose'
+import { ACCESS_TOKEN_COOKIE, ROUTES, isAdminRole } from './lib/constants'
 
-const PUBLIC_PATHS = ['/login', '/register']
+const PUBLIC_PATHS: string[] = [ROUTES.login]
 
 async function getRoleFromToken(token: string): Promise<string | null> {
   try {
@@ -10,9 +11,8 @@ async function getRoleFromToken(token: string): Promise<string | null> {
     const { payload } = await jwtVerify(token, secret)
     return (payload.role as string) ?? null
   } catch (err) {
-    // If the token is expired (but the signature is valid), let the request through.
-    // The client-side axios interceptor will silently call /api/auth/refresh and retry.
-    // Only forged tokens (bad signature) should be hard-blocked here.
+    // Expired-but-valid-signature tokens are let through; the axios interceptor
+    // will silently refresh before retrying the API call.
     if (err instanceof Error && err.name === 'JWTExpired') {
       try {
         const payload = decodeJwt(token)
@@ -26,30 +26,26 @@ async function getRoleFromToken(token: string): Promise<string | null> {
 }
 
 export async function proxy(request: NextRequest) {
-  const token = request.cookies.get('admin_access_token')?.value
+  const token = request.cookies.get(ACCESS_TOKEN_COOKIE)?.value
   const { pathname } = request.nextUrl
 
   const isPublic = PUBLIC_PATHS.includes(pathname)
 
-  // Not logged in
   if (!token) {
     if (isPublic) return NextResponse.next()
-    return NextResponse.redirect(new URL('/login', request.url))
+    return NextResponse.redirect(new URL(ROUTES.login, request.url))
   }
 
   const role = await getRoleFromToken(token)
+  const isPrivileged = isAdminRole(role)
 
-  const isPrivileged = role === 'admin' || role === 'super_admin'
-
-  // On login/register: redirect confirmed admins to dashboard
   if (isPublic) {
-    if (isPrivileged) return NextResponse.redirect(new URL('/admin/dashboard', request.url))
+    if (isPrivileged) return NextResponse.redirect(new URL(ROUTES.dashboard, request.url))
     return NextResponse.next()
   }
 
-  // Forged token or non-privileged → back to login
   if (!isPrivileged) {
-    return NextResponse.redirect(new URL('/login', request.url))
+    return NextResponse.redirect(new URL(ROUTES.login, request.url))
   }
 
   return NextResponse.next()
