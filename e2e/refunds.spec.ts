@@ -6,7 +6,7 @@ test.beforeEach(async ({ page }) => {
 
 test('refunds page loads with KPI stats', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Refunds', exact: true })).toBeVisible()
-  await expect(page.getByText('Approved', { exact: true })).toBeVisible()
+  await expect(page.getByText('Approved', { exact: true }).first()).toBeVisible()
   await expect(page.getByText('Pending', { exact: true }).first()).toBeVisible()
   await expect(page.getByText(/total refund records/i)).toBeVisible()
 })

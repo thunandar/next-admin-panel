@@ -10,10 +10,12 @@ test('profile page loads', async ({ page }) => {
 
 test('profile fields are pre-filled', async ({ page }) => {
   await page.waitForLoadState('networkidle')
-  const nameInput = page.locator('input').first()
   const email = page.locator('input[type="email"]')
-  await expect(nameInput).not.toHaveValue('')
   await expect(email).not.toHaveValue('')
+  // The name input has no explicit `type` (defaults to text). The hidden file
+  // input and the email input also live in <main>, so exclude both.
+  const name = page.locator('main input:not([type])').first()
+  await expect(name).not.toHaveValue('')
 })
 
 test('security section is visible', async ({ page }) => {
@@ -23,15 +25,15 @@ test('security section is visible', async ({ page }) => {
 })
 
 test('change password form expands and collapses', async ({ page }) => {
-  await page.getByRole('button', { name: 'Change' }).click()
+  await page.getByRole('button', { name: 'Change', exact: true }).click()
   await expect(page.getByText('Current password')).toBeVisible()
-  await expect(page.getByText('New password')).toBeVisible()
+  await expect(page.getByText('New password', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Cancel' }).click()
   await expect(page.getByText('Current password')).toBeHidden()
 })
 
 test('notifications section is visible', async ({ page }) => {
-  await expect(page.getByText('Notifications')).toBeVisible()
+  await expect(page.getByText('Notifications', { exact: true })).toBeVisible()
   await expect(page.getByText('New orders')).toBeVisible()
   await expect(page.getByText(/low stock alerts/i)).toBeVisible()
 })

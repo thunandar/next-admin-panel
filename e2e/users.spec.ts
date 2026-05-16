@@ -11,29 +11,29 @@ test('users page loads with table', async ({ page }) => {
 })
 
 test('can search users by name or email', async ({ page }) => {
-  await page.getByPlaceholder(/search/i).fill('admin')
-  await page.getByRole('button', { name: /search/i }).click()
+  // Search is reactive — typing into the page's "Name, email" input refetches.
+  await page.getByPlaceholder('Name, email').fill('admin')
   await page.waitForLoadState('networkidle')
 })
 
 test('can filter users by role', async ({ page }) => {
-  const roleFilter = page.getByRole('combobox')
-  await roleFilter.selectOption('admin')
+  // Role is filtered via the Customers / Staff / Banned tabs.
+  await page.getByRole('tab', { name: 'Staff' }).click()
   await page.waitForLoadState('networkidle')
-  await roleFilter.selectOption('user')
+  await page.getByRole('tab', { name: 'Customers' }).click()
   await page.waitForLoadState('networkidle')
-  await roleFilter.selectOption('')
+  await page.getByRole('tab', { name: 'All' }).click()
   await page.waitForLoadState('networkidle')
 })
 
-test('can open edit modal for a user', async ({ page }) => {
-  // Find first edit button
-  const editBtn = page.getByRole('button').filter({ has: page.locator('svg') }).first()
-  if (await editBtn.isVisible()) {
-    await editBtn.click()
-    await expect(page.getByText('Edit User')).toBeVisible({ timeout: 5_000 })
-    // Close modal
-    await page.getByRole('button', { name: /cancel/i }).click()
+test('can open user detail modal', async ({ page }) => {
+  await page.waitForLoadState('networkidle')
+  // The right-hand chevron button opens the detail modal.
+  const viewBtn = page.getByRole('button', { name: /^View / }).first()
+  if (await viewBtn.isVisible()) {
+    await viewBtn.click()
+    // The modal title is the user's name; the email row contains the U-#### code.
+    await expect(page.locator('text=/U-\\d{4}/').first()).toBeVisible({ timeout: 5_000 })
   }
 })
 
@@ -55,7 +55,6 @@ test('create a new admin from the invite modal', async ({ page }) => {
 
   // Modal closes on success; verify the new admin appears in the table
   await expect(dialog).toBeHidden({ timeout: 10_000 })
-  await page.getByPlaceholder(/search/i).fill(email)
-  await page.getByRole('button', { name: /search/i }).click()
+  await page.getByPlaceholder('Name, email').fill(email)
   await expect(page.getByText(email)).toBeVisible({ timeout: 10_000 })
 })

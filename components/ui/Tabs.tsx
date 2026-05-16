@@ -26,6 +26,7 @@ export default function Tabs<T extends string = string>({
 }: TabsProps<T>) {
   return (
     <div
+      role="tablist"
       className={className}
       style={{
         display: 'inline-flex',
@@ -42,6 +43,8 @@ export default function Tabs<T extends string = string>({
           <button
             key={t.value}
             type="button"
+            role="tab"
+            aria-selected={active}
             onClick={() => onChange(t.value)}
             style={{
               height: 30,

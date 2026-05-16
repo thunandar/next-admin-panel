@@ -40,8 +40,11 @@ test('creates a new category, then deletes it', async ({ page }) => {
   await expect(page.getByText(name).first()).toBeVisible({ timeout: 8_000 })
 
   // Delete it to keep the seed data clean. Scope the confirm to the dialog so
-  // it doesn't collide with the row-level "Delete <name>" button.
+  // it doesn't collide with the row-level "Delete <name>" button. Use a count
+  // check rather than toBeHidden — multiple elements (row + edit/delete button
+  // accessible names) momentarily reference the name during the optimistic
+  // update, which trips strict mode.
   await page.getByRole('button', { name: `Delete ${name}` }).click()
   await page.getByRole('dialog').getByRole('button', { name: 'Delete', exact: true }).click()
-  await expect(page.getByText(name)).toBeHidden({ timeout: 8_000 })
+  await expect(page.getByRole('cell', { name, exact: true })).toHaveCount(0, { timeout: 8_000 })
 })

@@ -10,15 +10,17 @@ test('vendors page loads with header + new button', async ({ page }) => {
 })
 
 test('shows expected column headers', async ({ page }) => {
-  await page.waitForLoadState('networkidle')
-  await expect(page.getByRole('columnheader', { name: 'Vendor' })).toBeVisible()
-  await expect(page.getByRole('columnheader', { name: 'Slug' })).toBeVisible()
-  await expect(page.getByRole('columnheader', { name: 'Status' })).toBeVisible()
-  await expect(page.getByRole('columnheader', { name: 'Website' })).toBeVisible()
+  // Wait for the page to fully render its table before asserting.
+  await expect(page.locator('table thead th').first()).toBeVisible()
+  const headers = page.locator('table thead th')
+  await expect(headers.nth(0)).toHaveText('Vendor')
+  await expect(headers.nth(1)).toHaveText('Slug')
+  await expect(headers.nth(2)).toHaveText('Status')
+  await expect(headers.nth(3)).toHaveText('Website')
 })
 
 test('status pills filter the list', async ({ page }) => {
-  await page.waitForLoadState('networkidle')
+  await expect(page.getByRole('heading', { name: 'Vendors', exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Active', exact: true }).click()
   await page.waitForTimeout(200)
   await page.getByRole('button', { name: 'Inactive', exact: true }).click()
@@ -27,12 +29,15 @@ test('status pills filter the list', async ({ page }) => {
 })
 
 test('new vendor button navigates to create form', async ({ page }) => {
+  await expect(page.getByRole('link', { name: /new vendor/i })).toBeVisible()
   await page.getByRole('link', { name: /new vendor/i }).click()
+  await page.waitForURL(/vendors\/new/, { timeout: 10_000 })
   await expect(page).toHaveURL(/vendors\/new/)
 })
 
 test('search filter narrows results client-side', async ({ page }) => {
-  await page.waitForLoadState('networkidle')
-  await page.getByPlaceholder(/search vendors/i).fill('zzzzzzz-no-vendor')
+  const searchInput = page.getByPlaceholder(/search vendors/i)
+  await expect(searchInput).toBeVisible()
+  await searchInput.fill('zzzzzzz-no-vendor')
   await expect(page.getByText(/no vendors match/i)).toBeVisible({ timeout: 5_000 })
 })

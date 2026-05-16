@@ -6,10 +6,10 @@ test.beforeEach(async ({ page }) => {
 
 test('dashboard loads and shows stat cards', async ({ page }) => {
   await page.waitForLoadState('networkidle')
-  await expect(page.getByText('Revenue', { exact: true })).toBeVisible()
+  await expect(page.getByText('Revenue', { exact: true }).first()).toBeVisible()
   await expect(page.getByText('Orders', { exact: true }).first()).toBeVisible()
-  await expect(page.getByText('Visitors', { exact: true })).toBeVisible()
-  await expect(page.getByText('Conversion', { exact: true })).toBeVisible()
+  await expect(page.getByText('Visitors', { exact: true }).first()).toBeVisible()
+  await expect(page.getByText('Conversion', { exact: true }).first()).toBeVisible()
 })
 
 test('top-products card opens its product detail', async ({ page }) => {
