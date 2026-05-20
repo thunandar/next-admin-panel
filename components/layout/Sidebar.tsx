@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { SHOP_URL } from '@/lib/constants';
 import { useAuth } from '@/context/AuthContext';
 import { I } from '@/components/ui/Icons';
 import Avatar from '@/components/ui/Avatar';
@@ -284,7 +285,7 @@ export default function Sidebar({ isOpen = false, collapsed = false, onClose }: 
           <span style={{ color: 'var(--ink)', fontWeight: 500 }}>234ms</span> avg response.
         </div>
         <a
-          href={process.env.NEXT_PUBLIC_SHOP_URL || 'https://next-user-site.vercel.app/shop'}
+          href={`${SHOP_URL}/shop`}
           target="_blank"
           rel="noreferrer"
           className="inline-flex items-center justify-center gap-1.5"

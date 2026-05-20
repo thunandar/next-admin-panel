@@ -6,7 +6,7 @@ export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
 
 export const SHOP_URL =
-  process.env.NEXT_PUBLIC_SHOP_URL || 'http://localhost:3000'
+  process.env.NEXT_PUBLIC_SHOP_URL || 'https://next-user-site.vercel.app'
 
 // Auth cookie + role
 export const ACCESS_TOKEN_COOKIE = 'admin_access_token'
