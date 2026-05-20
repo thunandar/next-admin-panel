@@ -2,9 +2,10 @@ name: CI Pipeline - Lint & Build
 
 on:
   pull_request:
-    branches: [ master, develop ]
+    branches: [ main, master, develop ]
   push:
-    branches: [ develop ]
+    branches: [ main, develop ]
+  workflow_dispatch:
 
 jobs:
   lint-and-build:
