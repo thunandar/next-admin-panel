@@ -284,7 +284,7 @@ export default function Sidebar({ isOpen = false, collapsed = false, onClose }: 
           <span style={{ color: 'var(--ink)', fontWeight: 500 }}>234ms</span> avg response.
         </div>
         <a
-          href={process.env.NEXT_PUBLIC_SHOP_URL || 'http://localhost:3000'}
+          href={process.env.NEXT_PUBLIC_SHOP_URL || 'https://next-user-site.vercel.app/shop'}
           target="_blank"
           rel="noreferrer"
           className="inline-flex items-center justify-center gap-1.5"
