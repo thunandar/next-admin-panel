@@ -6,6 +6,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import toast from 'react-hot-toast'
 import { journalApi, type JournalPost } from '@/lib/api'
+import { SHOP_URL } from '@/lib/constants'
 import { getApiErrorMessage, formatDate, getImageUrl } from '@/lib/utils'
 import Button, { IconBtn } from '@/components/ui/Button'
 import Card from '@/components/ui/Card'
@@ -13,8 +14,6 @@ import Badge from '@/components/ui/Badge'
 import { ConfirmModal } from '@/components/ui/Modal'
 import { PageLoader } from '@/components/ui/Spinner'
 import { I } from '@/components/ui/Icons'
-
-const SHOP_URL = process.env.NEXT_PUBLIC_SHOP_URL || 'http://localhost:3000'
 
 const META_LABEL: React.CSSProperties = {
   fontSize: 11,
